@@ -28,5 +28,13 @@ class Student(Base):
     otp_code = Column(String, nullable=True)
     otp_expires_at = Column(DateTime(timezone=True), nullable=True)
 
+    @property
+    def otp_expiry(self):
+        return self.otp_expires_at
+
+    @otp_expiry.setter
+    def otp_expiry(self, value):
+        self.otp_expires_at = value
+
     group = relationship("ProjectGroup", back_populates="students")
     comments = relationship("SystemComment", back_populates="author")
