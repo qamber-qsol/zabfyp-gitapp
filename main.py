@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 
-from app.api.v1 import admin, auth, coordinator, group, student, webhooks
+from app.api.v1 import admin, auth, coordinator, github, group, student, webhooks
 from app.core.database import engine
 from app.models import Base
 
@@ -13,6 +13,7 @@ app = FastAPI(title="FYP GitHub Administration API")
 app.include_router(auth.router, prefix="/api/v1/auth", tags=["Authentication"])
 app.include_router(coordinator.router, prefix="/api/v1/coordinator", tags=["Coordinator Dashboard"])
 app.include_router(group.router, prefix="/api/v1/groups", tags=["Student Groups"])
+app.include_router(github.router, prefix="/api/v1/github", tags=["GitHub Integration"])
 app.include_router(student.router, prefix="/api/v1/students", tags=["Students"])
 app.include_router(admin.router, prefix="/api/v1/admin", tags=["Admin"])
 app.include_router(webhooks.router, prefix="/api/v1/webhooks", tags=["Webhooks"])
