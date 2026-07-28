@@ -46,3 +46,16 @@ async def get_current_coordinator(
         )
     return current_student
 
+
+async def get_current_admin(
+    current_student: Student = Depends(get_current_student),
+) -> Student:
+    role_val = current_student.role.value if hasattr(current_student.role, "value") else str(current_student.role)
+    if str(role_val).lower() != "admin":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Admin privileges required",
+        )
+    return current_student
+
+
