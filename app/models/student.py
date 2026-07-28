@@ -1,6 +1,16 @@
-from sqlalchemy import Column, Integer, String, ForeignKey
+import enum
+
+from sqlalchemy import Boolean, Column, Enum, ForeignKey, Integer, String
 from sqlalchemy.orm import relationship
+
 from .base import Base
+
+
+class UserRole(str, enum.Enum):
+    STUDENT = "student"
+    COORDINATOR = "coordinator"
+    ADMIN = "admin"
+
 
 class Student(Base):
     __tablename__ = "students"
@@ -11,5 +21,10 @@ class Student(Base):
     email = Column(String, unique=True, index=True)
     group_id = Column(Integer, ForeignKey("project_groups.id"))
     invite_status = Column(String, default="pending")
+    hashed_password = Column(String, nullable=True)
+    role = Column(Enum(UserRole), default=UserRole.STUDENT, nullable=False)
+    is_verified = Column(Boolean, default=False)
+    github_username = Column(String, unique=True, nullable=True)
 
     group = relationship("ProjectGroup", back_populates="students")
+    comments = relationship("SystemComment", back_populates="author")

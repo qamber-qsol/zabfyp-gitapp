@@ -1,12 +1,13 @@
 import os
-import sys
 import re
+import sys
+
 import pandas as pd
 
 # Add root directory to path
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from app.database import SessionLocal
+from app.core.database import SessionLocal
 from app.models.group import ProjectGroup
 from app.models.student import Student
 

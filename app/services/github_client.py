@@ -1,6 +1,7 @@
 import requests
 from github import Github, GithubException
-from app.config import settings
+
+from app.core.config import settings
 
 class GitHubService:
     def __init__(self):
