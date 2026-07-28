@@ -23,3 +23,7 @@ pandas==2.3.1
 
 # Cryptography (For validating GitHub Webhook HMAC signatures)
 cryptography==41.0.7
+
+fastapi-mail==1.4.1
+passlib[bcrypt]==1.7.4
+python-multipart==0.0.6
