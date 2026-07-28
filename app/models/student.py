@@ -1,6 +1,6 @@
 import enum
 
-from sqlalchemy import Boolean, Column, Enum, ForeignKey, Integer, String
+from sqlalchemy import Boolean, Column, DateTime, Enum, ForeignKey, Integer, String
 from sqlalchemy.orm import relationship
 
 from .base import Base
@@ -25,6 +25,8 @@ class Student(Base):
     role = Column(Enum(UserRole), default=UserRole.STUDENT, nullable=False)
     is_verified = Column(Boolean, default=False)
     github_username = Column(String, unique=True, nullable=True)
+    otp_code = Column(String, nullable=True)
+    otp_expires_at = Column(DateTime(timezone=True), nullable=True)
 
     group = relationship("ProjectGroup", back_populates="students")
     comments = relationship("SystemComment", back_populates="author")
