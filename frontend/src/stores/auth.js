@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia'
-import axios from 'axios'
+import api from '@/services/api'
 
 export const useAuthStore = defineStore('auth', {
   state: () => ({
@@ -20,7 +20,7 @@ export const useAuthStore = defineStore('auth', {
       this.loading = true
       this.error = null
       try {
-        const response = await axios.post('/api/v1/auth/request-otp', { email })
+        const response = await api.post('/auth/request-otp', { email })
         this.user_email = email
         localStorage.setItem('user_email', email)
         return response.data
@@ -37,14 +37,14 @@ export const useAuthStore = defineStore('auth', {
       this.error = null
       try {
         // Step 1: Verify OTP and set password
-        await axios.post('/api/v1/auth/verify-otp', {
+        await api.post('/auth/verify-otp', {
           email,
           otp,
           new_password,
         })
 
         // Step 2: Authenticate and fetch JWT token
-        const loginResponse = await axios.post('/api/v1/auth/login', {
+        const loginResponse = await api.post('/auth/login', {
           email,
           password: new_password,
         })
@@ -69,7 +69,7 @@ export const useAuthStore = defineStore('auth', {
       this.loading = true
       this.error = null
       try {
-        const response = await axios.post('/api/v1/auth/login', { email, password })
+        const response = await api.post('/auth/login', { email, password })
         const accessToken = response.data.access_token
         this.token = accessToken
         localStorage.setItem('access_token', accessToken)
@@ -89,11 +89,7 @@ export const useAuthStore = defineStore('auth', {
     async fetchStudentData() {
       if (!this.token) return null
       try {
-        const response = await axios.get('/api/v1/students/me', {
-          headers: {
-            Authorization: `Bearer ${this.token}`,
-          },
-        })
+        const response = await api.get('/students/me')
         this.student_data = response.data
         if (response.data.role) {
           this.user_role = response.data.role
