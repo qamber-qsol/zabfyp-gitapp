@@ -1,0 +1,96 @@
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, status
+from sqlalchemy.orm import Session
+
+from app.api.deps import get_current_coordinator
+from app.core.database import get_db
+from app.models.comment import SystemComment
+from app.models.group import ProjectGroup
+from app.models.student import Student
+from app.schemas.coordinator import GroupStatusUpdate, GroupStatusUpdateResponse
+from app.schemas.group import GroupResponse
+from app.services.email import send_group_status_email
+
+router = APIRouter(tags=["Coordinator Dashboard"])
+
+
+@router.get("/groups", response_model=list[GroupResponse], status_code=status.HTTP_200_OK)
+async def list_groups(
+    status_filter: str | None = Query(None, alias="status"),
+    current_coordinator: Student = Depends(get_current_coordinator),
+    db: Session = Depends(get_db),
+) -> list[GroupResponse]:
+    query = db.query(ProjectGroup)
+    if status_filter:
+        query = query.filter(ProjectGroup.status == status_filter)
+
+    groups = query.all()
+
+    response_list = []
+    for g in groups:
+        member_emails = [s.email for s in g.students if s.email]
+        response_list.append(
+            GroupResponse(
+                id=g.id,
+                name=g.name or g.group_name or "",
+                project_title=g.project_title,
+                description=g.description,
+                status=g.status,
+                member_emails=member_emails,
+            )
+        )
+
+    return response_list
+
+
+@router.patch("/groups/{group_id}/status", response_model=GroupStatusUpdateResponse, status_code=status.HTTP_200_OK)
+async def update_group_status(
+    group_id: int,
+    update_data: GroupStatusUpdate,
+    background_tasks: BackgroundTasks,
+    current_coordinator: Student = Depends(get_current_coordinator),
+    db: Session = Depends(get_db),
+) -> GroupStatusUpdateResponse:
+    group = db.query(ProjectGroup).filter(ProjectGroup.id == group_id).first()
+    if not group:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Project group with id {group_id} not found.",
+        )
+
+    group.status = update_data.status
+
+    feedback_text: str | None = None
+    if update_data.feedback and update_data.feedback.strip():
+        feedback_text = update_data.feedback.strip()
+        comment = SystemComment(
+            group_id=group.id,
+            author_id=current_coordinator.id,
+            content=feedback_text,
+        )
+        db.add(comment)
+
+    db.commit()
+    db.refresh(group)
+
+    member_emails = [s.email for s in group.students if s.email]
+
+    # Dispatch email notification in background
+    project_title = group.project_title or group.name or "Project Proposal"
+    background_tasks.add_task(
+        send_group_status_email,
+        member_emails,
+        project_title,
+        update_data.status,
+        update_data.feedback,
+    )
+
+    return GroupStatusUpdateResponse(
+        id=group.id,
+        name=group.name or group.group_name or "",
+        project_title=group.project_title,
+        description=group.description,
+        status=group.status,
+        member_emails=member_emails,
+        feedback=feedback_text,
+    )
+

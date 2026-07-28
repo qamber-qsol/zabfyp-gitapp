@@ -105,3 +105,108 @@ async def send_otp_email(email_to: EmailStr, otp_code: str) -> None:
 
     fm = FastMail(conf)
     await fm.send_message(message)
+
+
+async def send_group_status_email(
+    email_list: list[str],
+    project_title: str,
+    new_status: str,
+    feedback: str | None = None,
+) -> None:
+    if not email_list:
+        return
+
+    status_upper = new_status.upper()
+    status_color = "#28a745" if new_status.lower() == "approved" else "#dc3545"
+
+    feedback_html = ""
+    if feedback and feedback.strip():
+        feedback_html = f"""
+        <div style="margin-top: 20px; padding: 15px; background-color: #f8f9fa; border-left: 4px solid {status_color}; border-radius: 4px;">
+            <strong style="color: #333333;">Coordinator Feedback:</strong>
+            <p style="margin: 8px 0 0 0; color: #555555; white-space: pre-wrap;">{feedback.strip()}</p>
+        </div>
+        """
+
+    html_content = f"""
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <meta charset="utf-8">
+        <style>
+            body {{
+                font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+                background-color: #f4f6f8;
+                margin: 0;
+                padding: 20px;
+            }}
+            .container {{
+                max-width: 550px;
+                margin: 0 auto;
+                background: #ffffff;
+                border-radius: 8px;
+                padding: 30px;
+                box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+                border: 1px solid #e1e4e8;
+            }}
+            .header {{
+                text-align: center;
+                border-bottom: 2px solid #0047AB;
+                padding-bottom: 15px;
+                margin-bottom: 20px;
+            }}
+            .header h2 {{
+                color: #0047AB;
+                margin: 0;
+                font-size: 24px;
+            }}
+            .status-badge {{
+                display: inline-block;
+                padding: 6px 14px;
+                font-weight: bold;
+                color: #ffffff;
+                background-color: {status_color};
+                border-radius: 20px;
+                text-transform: uppercase;
+                letter-spacing: 1px;
+            }}
+            .footer {{
+                margin-top: 30px;
+                font-size: 12px;
+                color: #888888;
+                text-align: center;
+                border-top: 1px solid #eee;
+                padding-top: 15px;
+            }}
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <div class="header">
+                <h2>SZABIST FYP Portal</h2>
+            </div>
+            <p>Hello,</p>
+            <p>Your FYP project proposal <strong>"{project_title}"</strong> status has been updated to:</p>
+            <div style="text-align: center; margin: 20px 0;">
+                <span class="status-badge">{status_upper}</span>
+            </div>
+            {feedback_html}
+            <div class="footer">
+                <p>SZABIST Final Year Project Administration System</p>
+            </div>
+        </div>
+    </body>
+    </html>
+    """
+
+    try:
+        message = MessageSchema(
+            subject=f"FYP Project Proposal Status Update: {status_upper}",
+            recipients=email_list,
+            body=html_content,
+            subtype=MessageType.html,
+        )
+        fm = FastMail(conf)
+        await fm.send_message(message)
+    except Exception as e:
+        print(f"Failed to send group status email: {str(e)}")
