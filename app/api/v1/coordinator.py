@@ -1,12 +1,21 @@
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, status
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 
 from app.api.deps import get_current_coordinator
 from app.core.database import get_db
 from app.models.comment import SystemComment
 from app.models.group import ProjectGroup
+from app.models.repository import GroupRepository, StudentGithubInvite
 from app.models.student import Student
-from app.schemas.coordinator import GroupStatusUpdate, GroupStatusUpdateResponse
+from app.schemas.coordinator import (
+    CommentSchema,
+    GroupDeepDiveResponse,
+    GroupRepositorySchema,
+    GroupStatusUpdate,
+    GroupStatusUpdateResponse,
+    StudentGithubInviteSchema,
+    StudentInfo,
+)
 from app.schemas.group import GroupResponse
 from app.services.email import send_group_status_email
 
@@ -40,6 +49,103 @@ async def list_groups(
         )
 
     return response_list
+
+
+@router.get("/groups/{group_id}/details", response_model=GroupDeepDiveResponse, status_code=status.HTTP_200_OK)
+async def get_group_details(
+    group_id: int,
+    current_coordinator: Student = Depends(get_current_coordinator),
+    db: Session = Depends(get_db),
+) -> GroupDeepDiveResponse:
+    group = (
+        db.query(ProjectGroup)
+        .options(
+            joinedload(ProjectGroup.students),
+            joinedload(ProjectGroup.comments),
+        )
+        .filter(ProjectGroup.id == group_id)
+        .first()
+    )
+    if not group:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Project group with id {group_id} not found.",
+        )
+
+    # Repository info
+    repo = db.query(GroupRepository).filter(GroupRepository.group_id == group.id).first()
+    repo_schema = (
+        GroupRepositorySchema(
+            id=repo.id,
+            group_id=repo.group_id,
+            repo_name=repo.repo_name,
+            status=repo.status,
+        )
+        if repo
+        else None
+    )
+
+    # Student invites
+    student_ids = [s.id for s in group.students]
+    invites = (
+        db.query(StudentGithubInvite)
+        .filter(StudentGithubInvite.student_id.in_(student_ids))
+        .all()
+        if student_ids
+        else []
+    )
+    invite_schemas = [
+        StudentGithubInviteSchema(
+            id=inv.id,
+            student_id=inv.student_id,
+            github_username=inv.github_username,
+            invite_status=inv.invite_status,
+        )
+        for inv in invites
+    ]
+
+    # Members
+    member_schemas = [
+        StudentInfo(
+            id=s.id,
+            name=s.name,
+            email=s.email,
+            reg_id=s.reg_id,
+            is_verified=s.is_verified,
+            github_username=s.github_username,
+        )
+        for s in group.students
+    ]
+
+    # Comments
+    comment_schemas = [
+        CommentSchema(
+            id=c.id,
+            content=c.content,
+            author_id=c.author_id,
+            created_at=c.created_at,
+        )
+        for c in group.comments
+    ]
+
+    # Group response
+    member_emails = [s.email for s in group.students if s.email]
+    group_info = GroupResponse(
+        id=group.id,
+        name=group.name or group.group_name or "",
+        project_title=group.project_title,
+        description=group.description,
+        status=group.status,
+        member_emails=member_emails,
+    )
+
+    return GroupDeepDiveResponse(
+        group_info=group_info,
+        members=member_schemas,
+        comments=comment_schemas,
+        repository_info=repo_schema,
+        invite_statuses=invite_schemas,
+    )
 
 
 @router.patch("/groups/{group_id}/status", response_model=GroupStatusUpdateResponse, status_code=status.HTTP_200_OK)
@@ -93,4 +199,5 @@ async def update_group_status(
         member_emails=member_emails,
         feedback=feedback_text,
     )
+
 
