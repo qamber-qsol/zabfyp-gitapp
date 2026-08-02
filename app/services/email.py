@@ -8,13 +8,13 @@ from app.core.config import settings
 load_dotenv()
 
 conf = ConnectionConfig(
-    MAIL_USERNAME=settings.MAIL_USERNAME or os.getenv("MAIL_USERNAME", ""),
-    MAIL_PASSWORD=settings.MAIL_PASSWORD or os.getenv("MAIL_PASSWORD", ""),
-    MAIL_FROM=settings.MAIL_FROM or os.getenv("MAIL_FROM", os.getenv("MAIL_USERNAME", "noreply@example.com")),
-    MAIL_PORT=settings.MAIL_PORT or int(os.getenv("MAIL_PORT", "587")),
-    MAIL_SERVER=settings.MAIL_SERVER or os.getenv("MAIL_SERVER", "smtp.gmail.com"),
-    MAIL_STARTTLS=settings.MAIL_STARTTLS if settings.MAIL_STARTTLS is not None else os.getenv("MAIL_STARTTLS", "True").lower() in ("true", "1", "t"),
-    MAIL_SSL_TLS=settings.MAIL_SSL_TLS if settings.MAIL_SSL_TLS is not None else os.getenv("MAIL_SSL_TLS", "False").lower() in ("true", "1", "t"),
+    MAIL_USERNAME=os.getenv("MAIL_USERNAME"),
+    MAIL_PASSWORD=os.getenv("MAIL_PASSWORD"),
+    MAIL_FROM=os.getenv("MAIL_FROM"),
+    MAIL_PORT=int(os.getenv("MAIL_PORT")),
+    MAIL_SERVER=os.getenv("MAIL_SERVER"),
+    MAIL_STARTTLS=os.getenv("MAIL_STARTTLS", "True").lower() in ("true", "1", "t"),
+    MAIL_SSL_TLS=os.getenv("MAIL_SSL_TLS", "False").lower() in ("true", "1", "t"),
     USE_CREDENTIALS=True,
     VALIDATE_CERTS=True,
 )
