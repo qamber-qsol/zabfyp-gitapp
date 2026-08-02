@@ -24,7 +24,6 @@ async def create_group(
 
     # Create new project group
     new_group = ProjectGroup(
-        name=group_in.name,
         group_name=group_in.name,
         project_title=group_in.project_title,
         description=group_in.description,
@@ -54,7 +53,7 @@ async def create_group(
 
     return GroupResponse(
         id=new_group.id,
-        name=new_group.name or new_group.group_name or group_in.name,
+        name=new_group.group_name or group_in.name,
         project_title=new_group.project_title,
         description=new_group.description,
         status=new_group.status,
@@ -84,7 +83,7 @@ async def get_my_group(
 
     return GroupResponse(
         id=group.id,
-        name=group.name or group.group_name or "",
+        name=group.group_name or "",
         project_title=group.project_title,
         description=group.description,
         status=group.status,

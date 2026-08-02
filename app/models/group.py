@@ -8,7 +8,6 @@ class ProjectGroup(Base):
     id = Column(Integer, primary_key=True, index=True)
     group_no = Column(String, unique=True, index=True, nullable=True)
     group_name = Column(String, nullable=True)
-    name = Column(String, nullable=True)
     project_title = Column(String, nullable=True)
     description = Column(String, nullable=True)
     repo_name = Column(String, unique=True, nullable=True)
