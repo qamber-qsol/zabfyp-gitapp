@@ -1,4 +1,5 @@
 import time
+import asyncio
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from sqlalchemy import func
@@ -387,3 +388,41 @@ async def create_user(
     db.commit()
     
     return {"message": "User created successfully"}
+
+@router.post("/sync-github", status_code=status.HTTP_200_OK)
+async def sync_github(db: Session = Depends(get_db)):
+    groups_to_sync = db.query(ProjectGroup).filter(
+        (ProjectGroup.github_repo_url.is_(None)) | (ProjectGroup.status == "PENDING")
+    ).all()
+    
+    if not groups_to_sync:
+        return {"message": "No groups to sync.", "synced": 0}
+
+    results = []
+    
+    for group in groups_to_sync:
+        repo_name = group.repo_name or f"fyp-{group.group_no or group.id}-{group.group_name.replace(' ', '-')}"
+        team_name = group.team_name or f"Team-{group.group_no or group.id}"
+        student_emails = [s.email for s in group.students if s.email]
+        
+        try:
+            res = github_service.provision_group(
+                repo_name=repo_name,
+                team_name=team_name,
+                student_emails=student_emails
+            )
+            if res.get("repo_created"):
+                from app.core.config import settings
+                group.github_repo_url = f"https://github.com/{settings.GITHUB_ORG_NAME}/{repo_name}"
+                group.status = "SYNCED"
+                db.commit()
+                results.append({"group_id": group.id, "status": "success"})
+            else:
+                results.append({"group_id": group.id, "status": "failed", "errors": res.get("errors")})
+        except Exception as e:
+            db.rollback()
+            results.append({"group_id": group.id, "status": "error", "message": str(e)})
+            
+        await asyncio.sleep(2)
+        
+    return {"message": "Sync completed", "synced": len([r for r in results if r["status"] == "success"]), "details": results}

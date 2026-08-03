@@ -432,7 +432,7 @@ const isSyncing = ref(false)
 const syncResults = ref(null)
 
 const triggerBulkSync = async () => {
-  if (!confirm("Are you sure you want to provision GitHub repositories for all approved teams? This may take several minutes.")) {
+  if (!confirm("Are you sure you want to provision GitHub repositories for pending teams? This may take several minutes.")) {
     return
   }
 
@@ -440,21 +440,12 @@ const triggerBulkSync = async () => {
   syncResults.value = null
 
   try {
-    const response = await api.post('/admin/github/bulk-sync')
-    syncResults.value = response.data
-    
-    // Check if it was an early exit message, otherwise show the full stats
-    if (response.data.message) {
-        alert(response.data.message)
-    } else {
-        alert(`GitHub Sync Complete!\nSuccessfully provisioned: ${response.data.successful}\nFailed: ${response.data.failed}`)
-    }
-    
-    // Refresh dashboard metrics
+    const response = await api.post('/admin/sync-github')
+    alert(`Sync Complete! Successfully synced: ${response.data.synced}`)
     await fetchDashboardData()
   } catch (error) {
-    console.error("Bulk sync failed:", error)
-    alert(error.response?.data?.detail || "An error occurred while communicating with the server during the bulk sync.")
+    console.error("Sync failed:", error)
+    alert(error.response?.data?.detail || "An error occurred during sync.")
   } finally {
     isSyncing.value = false
   }
