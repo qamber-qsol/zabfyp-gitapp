@@ -65,28 +65,24 @@
             </div>
             <div class="meta-item">
               <p class="meta-label">Group Name</p>
-              <p class="meta-value">{{ student.group.name || '—' }}</p>
+              <p class="meta-value">{{ student.group.group_name || '—' }}</p>
+            </div>
+            <div class="meta-item" v-if="student.group.group_no">
+              <p class="meta-label">Group No.</p>
+              <p class="meta-value">{{ student.group.group_no }}</p>
             </div>
             <div class="meta-item">
               <p class="meta-label">Status</p>
               <p class="meta-value capitalize">{{ student.group.status }}</p>
             </div>
+            <div class="meta-item" v-if="student.group.team_name">
+              <p class="meta-label">Team Name</p>
+              <p class="meta-value">{{ student.group.team_name }}</p>
+            </div>
             <div class="meta-item" v-if="student.group.repo_name">
               <p class="meta-label">Repository</p>
               <p class="meta-value repo-name">{{ student.group.repo_name }}</p>
             </div>
-          </div>
-
-          <!-- Project Title -->
-          <div class="info-block">
-            <p class="info-label">Project Title</p>
-            <p class="info-value project-title">{{ student.group.project_title || 'Not specified' }}</p>
-          </div>
-
-          <!-- Description -->
-          <div class="info-block">
-            <p class="info-label">Proposal Description</p>
-            <p class="info-value desc-text">{{ student.group.description || 'No description provided.' }}</p>
           </div>
 
           <!-- Partners -->
@@ -154,7 +150,7 @@
             <div class="form-field">
               <label class="field-label">Group Name</label>
               <input
-                v-model="groupForm.name"
+                v-model="groupForm.group_name"
                 type="text"
                 required
                 placeholder="e.g. AI Vision Team"
@@ -163,25 +159,13 @@
             </div>
 
             <div class="form-field">
-              <label class="field-label">Project Title</label>
+              <label class="field-label">Team Name <span class="field-hint">(used for GitHub team, optional)</span></label>
               <input
-                v-model="groupForm.project_title"
+                v-model="groupForm.team_name"
                 type="text"
-                required
-                placeholder="e.g. Autonomous Traffic Analytics"
+                placeholder="e.g. ai-vision-team"
                 class="field-input"
               />
-            </div>
-
-            <div class="form-field">
-              <label class="field-label">Description</label>
-              <textarea
-                v-model="groupForm.description"
-                rows="3"
-                required
-                placeholder="Describe your project goals and methodology..."
-                class="field-input field-textarea"
-              ></textarea>
             </div>
 
             <div class="form-field">
@@ -351,7 +335,7 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import { useAuthStore } from '@/stores/auth'
-import axios from 'axios'
+import api from '@/services/api'
 
 const authStore = useAuthStore()
 
@@ -360,9 +344,8 @@ const student = ref(null)           // full StudentProfileResponse incl. group +
 const githubInviteStatus = ref(null) // InviteStatusResponse from /github/status or /students/me/github-invite
 
 const groupForm = ref({
-  name: '',
-  project_title: '',
-  description: '',
+  group_name: '',
+  team_name: '',
   member_emails_raw: '',
 })
 const groupLoading = ref(false)
@@ -386,15 +369,13 @@ const inviteBadgeClass = (inviteVal) => {
 
 // ─── Data Fetching ────────────────────────────────────────────────────────
 const fetchData = async () => {
-  // Single source of truth: GET /students/me now returns group + partners inline
+  // Single source of truth: GET /students/me returns group + partners inline
   student.value = await authStore.fetchStudentData()
 
-  // Fetch existing GitHub invite status (separate concern — tracks per-student invite record)
+  // Fetch existing GitHub invite status once we know the group is approved
   if (student.value?.group?.status === 'approved') {
     try {
-      const ghRes = await axios.get('/api/v1/github/status', {
-        headers: { Authorization: `Bearer ${authStore.token}` },
-      })
+      const ghRes = await api.get('/github/status')
       githubInviteStatus.value = ghRes.data
     } catch {
       githubInviteStatus.value = null
@@ -411,16 +392,11 @@ const handleCreateGroup = async () => {
       .map((e) => e.trim())
       .filter((e) => e.length > 0)
 
-    const res = await axios.post(
-      '/api/v1/groups/',
-      {
-        name: groupForm.value.name,
-        project_title: groupForm.value.project_title,
-        description: groupForm.value.description,
-        member_emails: emails,
-      },
-      { headers: { Authorization: `Bearer ${authStore.token}` } }
-    )
+    await api.post('/groups/', {
+      group_name: groupForm.value.group_name,
+      team_name: groupForm.value.team_name || undefined,
+      member_emails: emails,
+    })
 
     // Refresh full student profile so the group view renders immediately
     student.value = await authStore.fetchStudentData()
@@ -436,11 +412,7 @@ const handleSendInvite = async () => {
   inviteError.value = ''
   inviteLoading.value = true
   try {
-    const res = await axios.post(
-      '/api/v1/students/me/github-invite',
-      {},
-      { headers: { Authorization: `Bearer ${authStore.token}` } }
-    )
+    const res = await api.post('/students/me/github-invite', {})
     githubInviteStatus.value = res.data
   } catch (err) {
     inviteError.value = err.response?.data?.detail || 'Failed to dispatch GitHub invite.'

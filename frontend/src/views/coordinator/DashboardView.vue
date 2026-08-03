@@ -1,240 +1,381 @@
 <template>
-  <div class="space-y-8">
-    <!-- Header -->
-    <div class="bg-white p-6 sm:p-8 rounded-xl shadow-sm border border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-      <div>
-        <div class="inline-flex items-center space-x-2 text-xs font-semibold uppercase tracking-wider text-primary mb-1">
-          <span class="w-2 h-2 rounded-full bg-primary"></span>
-          <span>Coordinator Panel</span>
+  <div class="coordinator-dashboard space-y-8 animate-fade-in">
+    <!-- Welcome / Header Section -->
+    <div class="header-card">
+      <div class="flex flex-col md:flex-row justify-between items-center gap-6">
+        <div>
+          <div class="header-label">
+            <span class="pulse-dot"></span>
+            Coordinator Workspace
+          </div>
+          <h2 class="header-title">System Overview & Monitoring</h2>
+          <p class="header-sub">Deep monitoring and student progress tracking.</p>
         </div>
-        <h2 class="text-2xl font-bold text-slate-900 tracking-tight">Global Overview & Proposals</h2>
-        <p class="text-sm text-slate-500 mt-1">
-          Review FYP project proposals, monitor GitHub organization access, and manage team approvals.
-        </p>
-      </div>
-
-      <div class="flex items-center space-x-2">
-        <button
-          @click="fetchData"
-          class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold rounded-lg transition-all duration-200 flex items-center"
-        >
-          <svg class="w-3.5 h-3.5 mr-1.5 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-          </svg>
-          Refresh Overview
-        </button>
       </div>
     </div>
 
-    <!-- Metrics Grid (6 Stats Cards) -->
-    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-      <!-- Total Students -->
-      <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-100 flex items-center justify-between">
-        <div>
-          <p class="text-xs font-semibold uppercase tracking-wider text-slate-400">Total Students</p>
-          <h3 class="text-3xl font-bold text-slate-900 mt-1">{{ metrics.total_students }}</h3>
+    <!-- Metrics Row -->
+    <div v-if="metrics" class="metrics-grid">
+      <div class="metric-card group hover:-translate-y-1 transition-transform duration-300">
+        <div class="metric-icon-box bg-blue-100 text-[#124f9f] group-hover:bg-[#124f9f] group-hover:text-white transition-colors duration-300">
+          <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
+          </svg>
         </div>
-        <div class="w-12 h-12 rounded-xl bg-primary-light text-primary flex items-center justify-center">
+        <div class="metric-info">
+          <p class="metric-label">Total Teams</p>
+          <p class="metric-value">{{ metrics.total_groups }}</p>
+        </div>
+      </div>
+
+      <div class="metric-card group hover:-translate-y-1 transition-transform duration-300">
+        <div class="metric-icon-box bg-indigo-100 text-indigo-600 group-hover:bg-indigo-600 group-hover:text-white transition-colors duration-300">
           <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
           </svg>
         </div>
-      </div>
-
-      <!-- Total Groups -->
-      <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-100 flex items-center justify-between">
-        <div>
-          <p class="text-xs font-semibold uppercase tracking-wider text-slate-400">Total Groups</p>
-          <h3 class="text-3xl font-bold text-slate-900 mt-1">{{ metrics.total_groups }}</h3>
-        </div>
-        <div class="w-12 h-12 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center">
-          <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
-          </svg>
+        <div class="metric-info">
+          <p class="metric-label">Total Students</p>
+          <p class="metric-value">{{ metrics.total_students }}</p>
         </div>
       </div>
 
-      <!-- Approved Groups -->
-      <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-100 flex items-center justify-between">
-        <div>
-          <p class="text-xs font-semibold uppercase tracking-wider text-slate-400">Approved Groups</p>
-          <h3 class="text-3xl font-bold text-emerald-600 mt-1">{{ metrics.approved_groups }}</h3>
-        </div>
-        <div class="w-12 h-12 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
-          <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+      <div class="metric-card group hover:-translate-y-1 transition-transform duration-300">
+        <div class="metric-icon-box bg-emerald-100 text-emerald-600 group-hover:bg-emerald-600 group-hover:text-white transition-colors duration-300">
+          <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
+            <path fill-rule="evenodd" clip-rule="evenodd" d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.53 1.032 1.53 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z" />
           </svg>
         </div>
-      </div>
-
-      <!-- Rejected Groups -->
-      <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-100 flex items-center justify-between">
-        <div>
-          <p class="text-xs font-semibold uppercase tracking-wider text-slate-400">Rejected Groups</p>
-          <h3 class="text-3xl font-bold text-red-500 mt-1">{{ metrics.rejected_groups }}</h3>
-        </div>
-        <div class="w-12 h-12 rounded-xl bg-red-50 text-red-500 flex items-center justify-center">
-          <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
-          </svg>
-        </div>
-      </div>
-
-      <!-- Pending GitHub Invites -->
-      <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-100 flex items-center justify-between">
-        <div>
-          <p class="text-xs font-semibold uppercase tracking-wider text-slate-400">Pending Invites</p>
-          <h3 class="text-3xl font-bold text-amber-500 mt-1">{{ metrics.pending_github_invites }}</h3>
-        </div>
-        <div class="w-12 h-12 rounded-xl bg-amber-50 text-amber-500 flex items-center justify-center">
-          <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
-          </svg>
-        </div>
-      </div>
-
-      <!-- Active Repositories -->
-      <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-100 flex items-center justify-between">
-        <div>
-          <p class="text-xs font-semibold uppercase tracking-wider text-slate-400">Active Repositories</p>
-          <h3 class="text-3xl font-bold text-primary mt-1">{{ metrics.active_repositories }}</h3>
-        </div>
-        <div class="w-12 h-12 rounded-xl bg-primary-light text-primary flex items-center justify-center">
-          <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-          </svg>
+        <div class="metric-info">
+          <p class="metric-label">GitHub Sync Status</p>
+          <p class="metric-value">
+            {{ metrics.active_repositories }} <span class="text-gray-400 text-sm font-medium">/ {{ metrics.approved_groups }} Synced</span>
+          </p>
         </div>
       </div>
     </div>
+    
+    <div v-else-if="loadingMetrics" class="animate-pulse flex space-x-4">
+      <div class="h-24 bg-gray-200 rounded-2xl w-1/3"></div>
+      <div class="h-24 bg-gray-200 rounded-2xl w-1/3"></div>
+      <div class="h-24 bg-gray-200 rounded-2xl w-1/3"></div>
+    </div>
 
-    <!-- Groups List Table -->
-    <div class="bg-white rounded-xl shadow-sm border border-slate-100 overflow-hidden">
-      <!-- Section Header & Filter Tabs -->
-      <div class="p-6 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h3 class="text-lg font-bold text-slate-900 tracking-tight">Project Proposals & Groups</h3>
-          <p class="text-xs text-slate-500">Filter and select a group to review details and approve proposals</p>
-        </div>
-
-        <div class="flex items-center bg-slate-100 p-1 rounded-lg">
-          <button
-            v-for="filter in ['all', 'pending_approval', 'approved', 'rejected']"
-            :key="filter"
-            @click="currentFilter = filter"
-            :class="[
-              'px-3 py-1.5 text-xs font-semibold rounded-md capitalize transition-all duration-200',
-              currentFilter === filter ? 'bg-white text-primary shadow-sm' : 'text-slate-500 hover:text-slate-800'
-            ]"
-          >
-            {{ filter.replace('_', ' ') }}
-          </button>
+    <!-- Data Table -->
+    <div class="table-card">
+      <div class="table-header">
+        <h3 class="table-title">Project Teams Directory</h3>
+        <div class="search-box">
+          <svg class="search-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+          </svg>
+          <input type="text" v-model="searchQuery" placeholder="Search teams..." class="search-input" />
         </div>
       </div>
 
-      <!-- Table -->
       <div class="overflow-x-auto">
-        <table class="w-full text-left border-collapse">
+        <table class="data-table">
           <thead>
-            <tr class="bg-slate-50 border-b border-slate-100 text-xs font-semibold text-slate-400 uppercase tracking-wider">
-              <th class="py-3.5 px-6">ID</th>
-              <th class="py-3.5 px-6">Group Name</th>
-              <th class="py-3.5 px-6">Project Title</th>
-              <th class="py-3.5 px-6">Members</th>
-              <th class="py-3.5 px-6">Status</th>
-              <th class="py-3.5 px-6 text-right">Actions</th>
+            <tr>
+              <th>ID</th>
+              <th>Group Name</th>
+              <th>Team Name</th>
+              <th>Status</th>
+              <th>Members</th>
+              <th class="text-right">Action</th>
             </tr>
           </thead>
-          <tbody class="divide-y divide-slate-100 text-sm">
-            <tr v-if="filteredGroups.length === 0">
-              <td colspan="6" class="py-8 text-center text-xs text-slate-400">
-                No project groups found for the selected filter.
-              </td>
-            </tr>
-            <tr
-              v-for="group in filteredGroups"
-              :key="group.id"
-              class="hover:bg-slate-50/80 transition-colors duration-150"
-            >
-              <td class="py-4 px-6 font-mono font-bold text-xs text-slate-500">#{{ group.id }}</td>
-              <td class="py-4 px-6 font-semibold text-slate-900">{{ group.name }}</td>
-              <td class="py-4 px-6 text-slate-600 max-w-xs truncate">{{ group.project_title || 'N/A' }}</td>
-              <td class="py-4 px-6 text-xs text-slate-500">
-                <span class="px-2 py-1 bg-slate-100 rounded text-slate-700 font-medium">
-                  {{ group.member_emails ? group.member_emails.length : 0 }} member(s)
-                </span>
-              </td>
-              <td class="py-4 px-6">
-                <span
-                  :class="[
-                    'px-2.5 py-0.5 text-xs font-bold rounded-full uppercase tracking-wider',
-                    group.status === 'approved' ? 'bg-emerald-100 text-emerald-700 border border-emerald-200' :
-                    group.status === 'rejected' ? 'bg-red-100 text-red-700 border border-red-200' :
-                    'bg-amber-100 text-amber-700 border border-amber-200'
-                  ]"
-                >
-                  {{ group.status }}
-                </span>
-              </td>
-              <td class="py-4 px-6 text-right">
-                <router-link
-                  :to="`/coordinator/groups/${group.id}`"
-                  class="inline-flex items-center px-3 py-1.5 bg-primary/10 hover:bg-primary text-primary hover:text-white text-xs font-bold rounded-lg transition-all duration-200"
-                >
-                  Review Details
-                  <svg class="w-3.5 h-3.5 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
-                  </svg>
-                </router-link>
-              </td>
+          <tbody>
+            <template v-for="team in filteredTeams" :key="team.id">
+              <tr class="table-row group cursor-pointer" @click="toggleRow(team.id)">
+                <td class="font-medium text-gray-900">#{{ team.id }}</td>
+                <td class="font-semibold text-[#124f9f]">{{ team.group_name }}</td>
+                <td>{{ team.team_name || '—' }}</td>
+                <td>
+                  <span :class="statusBadgeClass(team.status)">{{ team.status }}</span>
+                </td>
+                <td>
+                  <div class="flex -space-x-2 overflow-hidden">
+                    <div v-for="(p, i) in team.partners.slice(0, 3)" :key="i" class="inline-block h-8 w-8 rounded-full ring-2 ring-white bg-gradient-to-br from-[#124f9f] to-blue-400 flex items-center justify-center text-white text-xs font-bold" :title="p.name || p.email">
+                      {{ (p.name || p.email).charAt(0).toUpperCase() }}
+                    </div>
+                    <div v-if="team.partners.length > 3" class="inline-block h-8 w-8 rounded-full ring-2 ring-white bg-gray-200 flex items-center justify-center text-gray-600 text-xs font-bold">
+                      +{{ team.partners.length - 3 }}
+                    </div>
+                  </div>
+                </td>
+                <td class="text-right">
+                  <button class="expand-btn">
+                    {{ expandedRows.includes(team.id) ? 'Hide' : 'View' }}
+                    <svg :class="{'rotate-180': expandedRows.includes(team.id)}" class="w-4 h-4 ml-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                    </svg>
+                  </button>
+                </td>
+              </tr>
+              <!-- Expanded Row Details -->
+              <tr v-if="expandedRows.includes(team.id)" class="expanded-row-bg">
+                <td colspan="6" class="p-0">
+                  <div class="expanded-content">
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                      
+                      <!-- Repo Details -->
+                      <div class="detail-card">
+                        <h4 class="detail-title">Repository Information</h4>
+                        <div class="detail-grid">
+                          <div>
+                            <p class="detail-label">Repository Name</p>
+                            <p class="detail-value font-mono text-[#124f9f]">{{ team.repo_name || 'Pending Creation' }}</p>
+                          </div>
+                          <div>
+                            <p class="detail-label">GitHub URL</p>
+                            <a v-if="team.github_repo_url" :href="team.github_repo_url" target="_blank" class="text-[#124f9f] hover:underline text-sm font-medium">Open in GitHub ↗</a>
+                            <p v-else class="text-gray-400 text-sm">Not Available</p>
+                          </div>
+                        </div>
+                      </div>
+
+                      <!-- Student List -->
+                      <div class="detail-card lg:row-span-2">
+                        <h4 class="detail-title">Team Members ({{ team.partners.length }})</h4>
+                        <div class="space-y-4 mt-4">
+                          <div v-for="partner in team.partners" :key="partner.id" class="student-card">
+                            <div class="flex justify-between items-start">
+                              <div>
+                                <p class="font-bold text-gray-900">{{ partner.name || 'Unknown' }}</p>
+                                <p class="text-xs text-gray-500">{{ partner.email }}</p>
+                                <p class="text-xs text-gray-500 mt-1">
+                                  GitHub: <span class="font-mono text-[#124f9f]">{{ partner.github_username || 'Not linked' }}</span>
+                                </p>
+                              </div>
+                              <div class="text-right">
+                                <span :class="inviteBadgeClass(partner.invite_status)">
+                                  {{ partner.invite_status || 'Pending' }}
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+                          <div v-if="team.partners.length === 0" class="text-sm text-gray-400 py-4 text-center">
+                            No students assigned yet.
+                          </div>
+                        </div>
+                      </div>
+                      
+                    </div>
+                  </div>
+                </td>
+              </tr>
+            </template>
+            <tr v-if="filteredTeams.length === 0 && !loadingTeams">
+              <td colspan="6" class="text-center py-12 text-gray-400">No teams found.</td>
             </tr>
           </tbody>
         </table>
+      </div>
+      <div v-if="loadingTeams" class="py-12 flex justify-center">
+        <svg class="animate-spin h-8 w-8 text-[#124f9f]" fill="none" viewBox="0 0 24 24">
+          <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+          <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
+        </svg>
       </div>
     </div>
   </div>
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
-import { useAuthStore } from '@/stores/auth'
-import axios from 'axios'
+import { ref, onMounted, computed } from 'vue'
+import api from '@/services/api'
 
-const authStore = useAuthStore()
+const metrics = ref(null)
+const teams = ref([])
+const loadingMetrics = ref(true)
+const loadingTeams = ref(true)
+const searchQuery = ref('')
+const expandedRows = ref([])
 
-const metrics = ref({
-  total_students: 0,
-  total_groups: 0,
-  approved_groups: 0,
-  rejected_groups: 0,
-  pending_github_invites: 0,
-  active_repositories: 0,
-})
-
-const groups = ref([])
-const currentFilter = ref('pending_approval')
-
-const filteredGroups = computed(() => {
-  if (currentFilter.value === 'all') return groups.value
-  return groups.value.filter((g) => g.status === currentFilter.value)
-})
-
-const fetchData = async () => {
+const fetchDashboardData = async () => {
   try {
-    const headers = { Authorization: `Bearer ${authStore.token}` }
-    
-    // Metrics overview
-    const overviewRes = await axios.get('/api/v1/dashboard/overview', { headers })
-    metrics.value = overviewRes.data
-
-    // All groups list
-    const groupsRes = await axios.get('/api/v1/coordinator/groups', { headers })
-    groups.value = groupsRes.data
-  } catch (err) {
-    console.error('Failed to load coordinator dashboard data:', err)
+    const [metricsRes, teamsRes] = await Promise.all([
+      api.get('/dashboard/overview'),
+      api.get('/coordinator/groups')
+    ])
+    metrics.value = metricsRes.data
+    teams.value = teamsRes.data
+  } catch (error) {
+    console.error("Failed to load dashboard data", error)
+  } finally {
+    loadingMetrics.value = false
+    loadingTeams.value = false
   }
 }
 
+const filteredTeams = computed(() => {
+  if (!searchQuery.value) return teams.value
+  const query = searchQuery.value.toLowerCase()
+  return teams.value.filter(t => 
+    t.group_name?.toLowerCase().includes(query) || 
+    t.team_name?.toLowerCase().includes(query) ||
+    t.id.toString() === query
+  )
+})
+
+const toggleRow = (id) => {
+  if (expandedRows.value.includes(id)) {
+    expandedRows.value = expandedRows.value.filter(rowId => rowId !== id)
+  } else {
+    expandedRows.value.push(id)
+  }
+}
+
+const statusBadgeClass = (statusVal) => {
+  const base = 'px-2.5 py-1 text-xs font-bold rounded-md uppercase tracking-wider border inline-block'
+  if (statusVal === 'approved') return `${base} bg-emerald-50 text-emerald-700 border-emerald-200`
+  if (statusVal === 'rejected') return `${base} bg-red-50 text-red-700 border-red-200`
+  return `${base} bg-amber-50 text-amber-700 border-amber-200`
+}
+
+const inviteBadgeClass = (inviteVal) => {
+  const base = 'px-2 py-0.5 text-[0.65rem] font-bold rounded-full uppercase tracking-wider border inline-block'
+  if (['sent', 'active'].includes(inviteVal)) return `${base} bg-emerald-100 text-emerald-700 border-emerald-200`
+  if (inviteVal === 'pending') return `${base} bg-amber-100 text-amber-700 border-amber-200`
+  return `${base} bg-slate-100 text-slate-500 border-slate-200`
+}
+
 onMounted(() => {
-  fetchData()
+  fetchDashboardData()
 })
 </script>
+
+<style scoped>
+/* Typography & Common */
+.coordinator-dashboard {
+  font-family: 'Inter', system-ui, sans-serif;
+}
+
+/* Header */
+.header-card {
+  @apply bg-white border border-gray-200 rounded-2xl p-6 md:p-8 shadow-sm relative overflow-hidden;
+  background: linear-gradient(120deg, #ffffff 0%, #f8fbff 100%);
+}
+.header-card::after {
+  content: '';
+  position: absolute;
+  top: 0; right: 0; bottom: 0;
+  width: 30%;
+  background: radial-gradient(circle at top right, rgba(18, 79, 159, 0.05), transparent 70%);
+  pointer-events: none;
+}
+.header-label {
+  @apply inline-flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-[#124f9f] mb-2;
+}
+.pulse-dot {
+  @apply w-2 h-2 rounded-full bg-[#124f9f];
+  animation: pulse 2s infinite;
+}
+.header-title {
+  @apply text-2xl md:text-3xl font-extrabold text-gray-900 tracking-tight;
+}
+.header-sub {
+  @apply text-sm md:text-base text-gray-500 mt-2;
+}
+
+/* Metrics Grid */
+.metrics-grid {
+  @apply grid grid-cols-1 md:grid-cols-3 gap-6;
+}
+.metric-card {
+  @apply bg-white border border-gray-100 rounded-2xl p-6 flex items-center gap-5 shadow-sm hover:shadow-md transition-all duration-300 relative overflow-hidden;
+}
+.metric-icon-box {
+  @apply w-12 h-12 rounded-xl flex items-center justify-center shrink-0;
+}
+.metric-info {
+  @apply flex flex-col;
+}
+.metric-label {
+  @apply text-xs font-bold text-gray-400 uppercase tracking-wider mb-1;
+}
+.metric-value {
+  @apply text-2xl font-black text-gray-900;
+}
+
+/* Table Card */
+.table-card {
+  @apply bg-white border border-gray-200 rounded-2xl shadow-sm overflow-hidden;
+}
+.table-header {
+  @apply p-6 border-b border-gray-100 flex flex-col md:flex-row md:items-center justify-between gap-4 bg-gray-50/50;
+}
+.table-title {
+  @apply text-lg font-bold text-gray-900;
+}
+.search-box {
+  @apply relative w-full md:w-72;
+}
+.search-icon {
+  @apply absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400;
+}
+.search-input {
+  @apply w-full pl-9 pr-4 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#124f9f] focus:border-transparent transition-shadow;
+}
+.data-table {
+  @apply w-full text-left border-collapse;
+}
+.data-table th {
+  @apply px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider border-b border-gray-200 bg-gray-50;
+}
+.data-table td {
+  @apply px-6 py-4 text-sm border-b border-gray-100;
+}
+.table-row {
+  @apply transition-colors hover:bg-blue-50/30;
+}
+.expand-btn {
+  @apply inline-flex items-center justify-end w-full text-sm font-semibold text-[#124f9f] group-hover:text-blue-800 transition-colors focus:outline-none;
+}
+
+/* Expanded Content */
+.expanded-row-bg {
+  @apply bg-slate-50/50 border-b border-gray-200;
+}
+.expanded-content {
+  @apply p-6 border-l-4 border-[#124f9f];
+  animation: slideDown 0.3s ease-out;
+}
+.detail-card {
+  @apply bg-white border border-gray-200 rounded-xl p-5 shadow-sm;
+}
+.detail-title {
+  @apply text-sm font-bold text-gray-400 uppercase tracking-wider mb-4 border-b border-gray-100 pb-2;
+}
+.detail-grid {
+  @apply grid grid-cols-2 gap-4;
+}
+.detail-label {
+  @apply text-xs font-semibold text-gray-500 mb-1;
+}
+.detail-value {
+  @apply text-sm font-medium text-gray-900;
+}
+
+.student-card {
+  @apply bg-gray-50 border border-gray-100 rounded-lg p-4 hover:border-blue-200 hover:shadow-sm transition-all;
+}
+
+/* Animations */
+@keyframes pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.6; transform: scale(1.2); }
+}
+@keyframes slideDown {
+  from { opacity: 0; transform: translateY(-10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.animate-fade-in {
+  animation: fadeIn 0.5s ease-out;
+}
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+</style>

@@ -16,7 +16,9 @@ from app.schemas.admin import (
     UserCreate,
 )
 from app.schemas.coordinator import StudentInfo
+from app.schemas.group import GroupCreate, GroupResponse
 from app.services.github import send_org_invite
+from app.models.webhook import PushEvent
 
 router = APIRouter(tags=["System Admin"], dependencies=[Depends(get_current_admin)])
 
@@ -160,7 +162,7 @@ async def force_github_invite(
     if student.group_id:
         group = db.query(ProjectGroup).filter(ProjectGroup.id == student.group_id).first()
         if group:
-            repo_name = group.repo_name or group.name or f"fyp-group-{group.id}"
+            repo_name = group.repo_name or group.group_name or f"fyp-group-{group.id}"
 
     # Bypass standard checks and dispatch invite
     invite_sent = await send_org_invite(
@@ -190,3 +192,55 @@ async def force_github_invite(
         message=f"Force invitation sent successfully to '{github_username}'.",
         detail=f"Target repository: {repo_name}",
     )
+
+
+@router.post("/groups", response_model=GroupResponse, status_code=status.HTTP_201_CREATED)
+async def create_group_override(
+    group_in: GroupCreate,
+    db: Session = Depends(get_db),
+) -> GroupResponse:
+    new_group = ProjectGroup(
+        group_name=group_in.group_name.strip(),
+        team_name=group_in.team_name.strip() if group_in.team_name else None,
+        status="approved"
+    )
+    db.add(new_group)
+    db.commit()
+    db.refresh(new_group)
+
+    return GroupResponse(
+        id=new_group.id,
+        group_no=new_group.group_no,
+        group_name=new_group.group_name,
+        team_name=new_group.team_name,
+        repo_name=new_group.repo_name,
+        github_repo_url=new_group.github_repo_url,
+        status=new_group.status,
+        member_emails=[],
+        partners=[]
+    )
+
+
+@router.get("/groups/{group_id}/logs", status_code=status.HTTP_200_OK)
+async def get_group_logs(
+    group_id: int,
+    db: Session = Depends(get_db),
+):
+    group = db.query(ProjectGroup).filter(ProjectGroup.id == group_id).first()
+    if not group:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Project group with id {group_id} not found.",
+        )
+    
+    events = db.query(PushEvent).filter(PushEvent.group_id == group_id).order_by(PushEvent.id.desc()).all()
+    
+    return [
+        {
+            "id": event.id,
+            "commit_hash": event.commit_hash,
+            "timestamp": event.timestamp,
+            "approval_status": event.approval_status
+        }
+        for event in events
+    ]

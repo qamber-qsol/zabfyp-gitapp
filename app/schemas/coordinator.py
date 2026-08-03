@@ -19,9 +19,8 @@ class GroupStatusUpdate(BaseModel):
 
 class GroupStatusUpdateResponse(BaseModel):
     id: int
-    name: str
-    project_title: str | None = None
-    description: str | None = None
+    group_name: str | None = None
+    team_name: str | None = None
     status: str
     member_emails: list[str] = []
     feedback: str | None = None

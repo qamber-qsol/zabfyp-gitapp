@@ -22,25 +22,22 @@ async def create_group(
             detail="Student is already a member of a project group.",
         )
 
-    # Create new project group
     new_group = ProjectGroup(
-        group_name=group_in.name,
-        project_title=group_in.project_title,
-        description=group_in.description,
+        group_name=group_in.group_name,
+        team_name=group_in.team_name,
         status="pending_approval",
     )
     db.add(new_group)
     db.flush()
 
-    # Assign current student to group
+    # Assign the creating student to the group
     current_student.group_id = new_group.id
 
-    # Process member_emails
+    # Link any partner emails that exist and have no group yet
     for email_str in group_in.member_emails:
         clean_email = str(email_str).strip().lower()
         if clean_email == current_student.email.lower():
             continue
-
         member = db.query(Student).filter(Student.email == clean_email).first()
         if member and member.is_verified and member.group_id is None:
             member.group_id = new_group.id
@@ -53,9 +50,11 @@ async def create_group(
 
     return GroupResponse(
         id=new_group.id,
-        name=new_group.group_name or group_in.name,
-        project_title=new_group.project_title,
-        description=new_group.description,
+        group_no=new_group.group_no,
+        group_name=new_group.group_name,
+        team_name=new_group.team_name,
+        repo_name=new_group.repo_name,
+        github_repo_url=new_group.github_repo_url,
         status=new_group.status,
         member_emails=member_emails,
     )
@@ -83,9 +82,11 @@ async def get_my_group(
 
     return GroupResponse(
         id=group.id,
-        name=group.group_name or "",
-        project_title=group.project_title,
-        description=group.description,
+        group_no=group.group_no,
+        group_name=group.group_name,
+        team_name=group.team_name,
+        repo_name=group.repo_name,
+        github_repo_url=group.github_repo_url,
         status=group.status,
         member_emails=member_emails,
     )

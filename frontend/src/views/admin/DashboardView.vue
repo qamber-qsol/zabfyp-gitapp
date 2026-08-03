@@ -1,356 +1,636 @@
 <template>
-  <div class="space-y-8">
-    <!-- Header -->
-    <div class="bg-white p-6 sm:p-8 rounded-xl shadow-sm border border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-      <div>
-        <div class="inline-flex items-center space-x-2 text-xs font-semibold uppercase tracking-wider text-red-600 mb-1">
-          <span class="w-2 h-2 rounded-full bg-red-600"></span>
-          <span>System Administrator Panel</span>
+  <div class="admin-dashboard space-y-8 animate-fade-in">
+    <!-- Welcome / Header Section -->
+    <div class="header-card">
+      <div class="flex flex-col md:flex-row justify-between items-center gap-6">
+        <div>
+          <div class="header-label">
+            <span class="pulse-dot"></span>
+            Admin Workspace - God Mode
+          </div>
+          <h2 class="header-title">Full System Control</h2>
+          <p class="header-sub">Manage teams, assign students, and monitor activity.</p>
         </div>
-        <h2 class="text-2xl font-bold text-slate-900 tracking-tight">System Controls & Overrides</h2>
-        <p class="text-sm text-slate-500 mt-1">
-          Provision staff accounts, execute student record manual overrides, force GitHub invites, and perform system cleanups.
-        </p>
+        <div>
+          <button @click="showCreateTeamModal = true" class="btn-primary">
+            <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+            </svg>
+            Create New Team
+          </button>
+        </div>
       </div>
     </div>
 
-    <!-- Alert Messages -->
-    <div v-if="successMsg" class="p-4 bg-emerald-50 border border-emerald-200 text-emerald-700 text-xs font-semibold rounded-xl">
-      {{ successMsg }}
+    <!-- Metrics Row -->
+    <div v-if="metrics" class="metrics-grid">
+      <div class="metric-card group hover:-translate-y-1 transition-transform duration-300">
+        <div class="metric-icon-box bg-blue-100 text-[#124f9f] group-hover:bg-[#124f9f] group-hover:text-white transition-colors duration-300">
+          <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
+          </svg>
+        </div>
+        <div class="metric-info">
+          <p class="metric-label">Total Teams</p>
+          <p class="metric-value">{{ metrics.total_groups }}</p>
+        </div>
+      </div>
+
+      <div class="metric-card group hover:-translate-y-1 transition-transform duration-300">
+        <div class="metric-icon-box bg-indigo-100 text-indigo-600 group-hover:bg-indigo-600 group-hover:text-white transition-colors duration-300">
+          <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
+          </svg>
+        </div>
+        <div class="metric-info">
+          <p class="metric-label">Total Students</p>
+          <p class="metric-value">{{ metrics.total_students }}</p>
+        </div>
+      </div>
+
+      <div class="metric-card group hover:-translate-y-1 transition-transform duration-300">
+        <div class="metric-icon-box bg-emerald-100 text-emerald-600 group-hover:bg-emerald-600 group-hover:text-white transition-colors duration-300">
+          <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
+            <path fill-rule="evenodd" clip-rule="evenodd" d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.53 1.032 1.53 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z" />
+          </svg>
+        </div>
+        <div class="metric-info">
+          <p class="metric-label">GitHub Sync Status</p>
+          <p class="metric-value">
+            {{ metrics.active_repositories }} <span class="text-gray-400 text-sm font-medium">/ {{ metrics.approved_groups }} Synced</span>
+          </p>
+        </div>
+      </div>
     </div>
-    <div v-if="errorMsg" class="p-4 bg-red-50 border border-red-200 text-red-700 text-xs font-semibold rounded-xl">
-      {{ errorMsg }}
+    
+    <div v-else-if="loadingMetrics" class="animate-pulse flex space-x-4">
+      <div class="h-24 bg-gray-200 rounded-2xl w-1/3"></div>
+      <div class="h-24 bg-gray-200 rounded-2xl w-1/3"></div>
+      <div class="h-24 bg-gray-200 rounded-2xl w-1/3"></div>
     </div>
 
-    <!-- Main Admin Grid -->
-    <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
-      
-      <!-- Card 1: Provision New Staff -->
-      <div class="bg-white p-6 sm:p-8 rounded-xl shadow-sm border border-slate-100 space-y-6">
-        <div class="border-b border-slate-100 pb-4">
-          <h3 class="text-lg font-bold text-slate-900 tracking-tight flex items-center">
-            <svg class="w-5 h-5 mr-2 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
-            </svg>
-            Provision Staff User
-          </h3>
-          <p class="text-xs text-slate-500 mt-0.5">Create a new Coordinator or Administrator account</p>
+    <!-- Data Table -->
+    <div class="table-card">
+      <div class="table-header">
+        <h3 class="table-title">Project Teams Directory</h3>
+        <div class="search-box">
+          <svg class="search-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+          </svg>
+          <input type="text" v-model="searchQuery" placeholder="Search teams..." class="search-input" />
         </div>
-
-        <form @submit.prevent="handleProvisionStaff" class="space-y-4">
-          <div>
-            <label class="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">Official Email</label>
-            <input
-              v-model="staffForm.email"
-              type="email"
-              required
-              placeholder="coordinator@szabist.pk"
-              class="w-full px-4 py-2.5 text-sm rounded-lg border border-slate-200 focus:ring-2 focus:ring-primary/20 focus:border-primary"
-            />
-          </div>
-
-          <div>
-            <label class="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">Temporary Password</label>
-            <input
-              v-model="staffForm.password"
-              type="password"
-              required
-              minlength="8"
-              placeholder="Minimum 8 characters"
-              class="w-full px-4 py-2.5 text-sm rounded-lg border border-slate-200 focus:ring-2 focus:ring-primary/20 focus:border-primary"
-            />
-          </div>
-
-          <div>
-            <label class="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">Assign Role</label>
-            <select
-              v-model="staffForm.role"
-              required
-              class="w-full px-4 py-2.5 text-sm rounded-lg border border-slate-200 focus:ring-2 focus:ring-primary/20 focus:border-primary bg-white"
-            >
-              <option value="coordinator">Coordinator</option>
-              <option value="admin">System Administrator</option>
-            </select>
-          </div>
-
-          <button
-            type="submit"
-            :disabled="staffLoading"
-            class="w-full py-3 px-4 bg-primary hover:bg-primary-hover text-white text-xs font-bold rounded-lg shadow-md transition-all duration-200 cursor-pointer disabled:opacity-50"
-          >
-            Provision Staff Account
-          </button>
-        </form>
       </div>
 
-      <!-- Card 2: Force GitHub Invite Override -->
-      <div class="bg-white p-6 sm:p-8 rounded-xl shadow-sm border border-slate-100 space-y-6">
-        <div class="border-b border-slate-100 pb-4">
-          <h3 class="text-lg font-bold text-slate-900 tracking-tight flex items-center">
-            <svg class="w-5 h-5 mr-2 text-primary" fill="currentColor" viewBox="0 0 24 24">
-              <path fill-rule="evenodd" clip-rule="evenodd" d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.53 1.032 1.53 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z" />
-            </svg>
-            Force GitHub Invite
-          </h3>
-          <p class="text-xs text-slate-500 mt-0.5">Bypass group status checks to dispatch an immediate org invitation</p>
-        </div>
+      <div class="overflow-x-auto">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>Group Name</th>
+              <th>Team Name</th>
+              <th>Status</th>
+              <th>Members</th>
+              <th class="text-right">Action</th>
+            </tr>
+          </thead>
+          <tbody>
+            <template v-for="team in filteredTeams" :key="team.id">
+              <tr class="table-row group cursor-pointer" @click="toggleRow(team.id)">
+                <td class="font-medium text-gray-900">#{{ team.id }}</td>
+                <td class="font-semibold text-[#124f9f]">{{ team.group_name }}</td>
+                <td>{{ team.team_name || '—' }}</td>
+                <td>
+                  <span :class="statusBadgeClass(team.status)">{{ team.status }}</span>
+                </td>
+                <td>
+                  <div class="flex -space-x-2 overflow-hidden">
+                    <div v-for="(p, i) in team.partners.slice(0, 3)" :key="i" class="inline-block h-8 w-8 rounded-full ring-2 ring-white bg-gradient-to-br from-[#124f9f] to-blue-400 flex items-center justify-center text-white text-xs font-bold" :title="p.name || p.email">
+                      {{ (p.name || p.email).charAt(0).toUpperCase() }}
+                    </div>
+                    <div v-if="team.partners.length > 3" class="inline-block h-8 w-8 rounded-full ring-2 ring-white bg-gray-200 flex items-center justify-center text-gray-600 text-xs font-bold">
+                      +{{ team.partners.length - 3 }}
+                    </div>
+                  </div>
+                </td>
+                <td class="text-right">
+                  <button class="expand-btn">
+                    {{ expandedRows.includes(team.id) ? 'Hide' : 'Manage' }}
+                    <svg :class="{'rotate-180': expandedRows.includes(team.id)}" class="w-4 h-4 ml-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                    </svg>
+                  </button>
+                </td>
+              </tr>
+              
+              <!-- Expanded Row Details (God Mode Controls) -->
+              <tr v-if="expandedRows.includes(team.id)" class="expanded-row-bg">
+                <td colspan="6" class="p-0">
+                  <div class="expanded-content">
+                    <div class="flex justify-between items-center mb-6 border-b border-gray-200 pb-4">
+                      <h4 class="text-lg font-bold text-[#124f9f]">Team God Mode</h4>
+                      <div class="flex space-x-3">
+                        <button @click="openLogsModal(team.id)" class="btn-outline">
+                          <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                          </svg>
+                          View Logs
+                        </button>
+                        <button @click="openAddStudentModal(team.id)" class="btn-primary-sm">
+                          <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
+                          </svg>
+                          Add Student
+                        </button>
+                      </div>
+                    </div>
+                    
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                      <!-- Repo Details -->
+                      <div class="detail-card">
+                        <h4 class="detail-title">Repository Information</h4>
+                        <div class="detail-grid">
+                          <div>
+                            <p class="detail-label">Repository Name</p>
+                            <p class="detail-value font-mono text-[#124f9f]">{{ team.repo_name || 'Pending Creation' }}</p>
+                          </div>
+                          <div>
+                            <p class="detail-label">GitHub URL</p>
+                            <a v-if="team.github_repo_url" :href="team.github_repo_url" target="_blank" class="text-[#124f9f] hover:underline text-sm font-medium">Open in GitHub ↗</a>
+                            <p v-else class="text-gray-400 text-sm">Not Available</p>
+                          </div>
+                        </div>
+                      </div>
 
-        <form @submit.prevent="handleForceInvite" class="space-y-4">
-          <div>
-            <label class="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">Student ID</label>
-            <input
-              v-model.number="inviteForm.student_id"
-              type="number"
-              required
-              placeholder="e.g. 42"
-              class="w-full px-4 py-2.5 text-sm rounded-lg border border-slate-200 focus:ring-2 focus:ring-primary/20 focus:border-primary"
-            />
-          </div>
-
-          <div>
-            <label class="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">GitHub Username (Optional)</label>
-            <input
-              v-model="inviteForm.github_username"
-              type="text"
-              placeholder="Leave blank to use student's stored username"
-              class="w-full px-4 py-2.5 text-sm rounded-lg border border-slate-200 focus:ring-2 focus:ring-primary/20 focus:border-primary font-mono"
-            />
-          </div>
-
-          <button
-            type="submit"
-            :disabled="inviteLoading"
-            class="w-full py-3 px-4 bg-primary hover:bg-primary-hover text-white text-xs font-bold rounded-lg shadow-md transition-all duration-200 cursor-pointer disabled:opacity-50"
-          >
-            Dispatch Force Invitation
-          </button>
-        </form>
+                      <!-- Student List with Action -->
+                      <div class="detail-card lg:row-span-2">
+                        <h4 class="detail-title">Team Members ({{ team.partners.length }})</h4>
+                        <div class="space-y-4 mt-4">
+                          <div v-for="partner in team.partners" :key="partner.id" class="student-card">
+                            <div class="flex justify-between items-center">
+                              <div>
+                                <p class="font-bold text-gray-900">{{ partner.name || 'Unknown' }}</p>
+                                <p class="text-xs text-gray-500">{{ partner.email }}</p>
+                                <p class="text-xs text-gray-500 mt-1">
+                                  GitHub: <span class="font-mono text-[#124f9f]">{{ partner.github_username || 'Not linked' }}</span>
+                                </p>
+                              </div>
+                              <div class="text-right flex flex-col items-end space-y-2">
+                                <span :class="inviteBadgeClass(partner.invite_status)">
+                                  {{ partner.invite_status || 'Pending' }}
+                                </span>
+                                <button @click="forceInvite(partner.id, partner.github_username)" class="text-xs font-semibold text-blue-600 hover:text-blue-800 transition-colors border border-blue-200 hover:bg-blue-50 px-2 py-1 rounded">
+                                  Force Invite
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                          <div v-if="team.partners.length === 0" class="text-sm text-gray-400 py-4 text-center">
+                            No students assigned yet. Use 'Add Student' above.
+                          </div>
+                        </div>
+                      </div>
+                      
+                    </div>
+                  </div>
+                </td>
+              </tr>
+            </template>
+            <tr v-if="filteredTeams.length === 0 && !loadingTeams">
+              <td colspan="6" class="text-center py-12 text-gray-400">No teams found.</td>
+            </tr>
+          </tbody>
+        </table>
       </div>
-
-      <!-- Card 3: Student Manual Record Override -->
-      <div class="bg-white p-6 sm:p-8 rounded-xl shadow-sm border border-slate-100 space-y-6">
-        <div class="border-b border-slate-100 pb-4">
-          <h3 class="text-lg font-bold text-slate-900 tracking-tight flex items-center">
-            <svg class="w-5 h-5 mr-2 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-            </svg>
-            Student Record Manual Override
-          </h3>
-          <p class="text-xs text-slate-500 mt-0.5">Edit email typos, link/unlink group IDs, or fix GitHub handles</p>
-        </div>
-
-        <form @submit.prevent="handleOverrideStudent" class="space-y-4">
-          <div>
-            <label class="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">Target Student ID</label>
-            <input
-              v-model.number="overrideForm.student_id"
-              type="number"
-              required
-              placeholder="e.g. 1"
-              class="w-full px-4 py-2.5 text-sm rounded-lg border border-slate-200 focus:ring-2 focus:ring-primary/20 focus:border-primary"
-            />
-          </div>
-
-          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div>
-              <label class="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">Full Name</label>
-              <input
-                v-model="overrideForm.name"
-                type="text"
-                placeholder="Updated Name"
-                class="w-full px-4 py-2 text-sm rounded-lg border border-slate-200 focus:ring-2 focus:ring-primary/20 focus:border-primary"
-              />
-            </div>
-
-            <div>
-              <label class="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">Email</label>
-              <input
-                v-model="overrideForm.email"
-                type="email"
-                placeholder="student@szabist.pk"
-                class="w-full px-4 py-2 text-sm rounded-lg border border-slate-200 focus:ring-2 focus:ring-primary/20 focus:border-primary"
-              />
-            </div>
-          </div>
-
-          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div>
-              <label class="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">Group ID (Blank = Unlink)</label>
-              <input
-                v-model.number="overrideForm.group_id"
-                type="number"
-                placeholder="e.g. 5"
-                class="w-full px-4 py-2 text-sm rounded-lg border border-slate-200 focus:ring-2 focus:ring-primary/20 focus:border-primary"
-              />
-            </div>
-
-            <div>
-              <label class="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">GitHub Username</label>
-              <input
-                v-model="overrideForm.github_username"
-                type="text"
-                placeholder="octocat"
-                class="w-full px-4 py-2 text-sm rounded-lg border border-slate-200 focus:ring-2 focus:ring-primary/20 focus:border-primary font-mono"
-              />
-            </div>
-          </div>
-
-          <button
-            type="submit"
-            :disabled="overrideLoading"
-            class="w-full py-3 px-4 bg-primary hover:bg-primary-hover text-white text-xs font-bold rounded-lg shadow-md transition-all duration-200 cursor-pointer disabled:opacity-50"
-          >
-            Apply Record Override
-          </button>
-        </form>
+      <div v-if="loadingTeams" class="py-12 flex justify-center">
+        <svg class="animate-spin h-8 w-8 text-[#124f9f]" fill="none" viewBox="0 0 24 24">
+          <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+          <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
+        </svg>
       </div>
+    </div>
 
-      <!-- Card 4: Dangerous Action - Force Group Deletion -->
-      <div class="bg-red-50/40 p-6 sm:p-8 rounded-xl shadow-sm border border-red-200 space-y-6">
-        <div class="border-b border-red-200 pb-4">
-          <h3 class="text-lg font-bold text-red-700 tracking-tight flex items-center">
-            <svg class="w-5 h-5 mr-2 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-            </svg>
-            Dangerous Action: Delete Group
-          </h3>
-          <p class="text-xs text-red-600 mt-0.5">Unlinks all student members and permanently deletes project group record</p>
+    <!-- Modals -->
+
+    <!-- Create Team Modal -->
+    <div v-if="showCreateTeamModal" class="modal-overlay" @click.self="showCreateTeamModal = false">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h3 class="text-lg font-bold text-gray-900">Create New Team</h3>
+          <button @click="showCreateTeamModal = false" class="text-gray-400 hover:text-gray-600">&times;</button>
         </div>
-
-        <form @submit.prevent="handleDeleteGroup" class="space-y-4">
-          <div>
-            <label class="block text-xs font-semibold text-red-800 uppercase tracking-wider mb-1">Target Group ID</label>
-            <input
-              v-model.number="deleteGroupId"
-              type="number"
-              required
-              placeholder="e.g. 12"
-              class="w-full px-4 py-2.5 text-sm rounded-lg border border-red-300 focus:ring-2 focus:ring-red-500/20 focus:border-red-500 bg-white"
-            />
+        <div class="modal-body">
+          <div class="form-field">
+            <label class="field-label">Group Name</label>
+            <input v-model="newTeamForm.group_name" type="text" placeholder="e.g. AI Vision Team" class="field-input" />
           </div>
-
-          <div class="p-3 bg-red-100/60 rounded-lg text-xs text-red-800 leading-relaxed font-medium">
-            Warning: This operation cannot be undone. Member students will be unlinked and set to no group.
+          <div class="form-field mt-4">
+            <label class="field-label">Team Name <span class="font-normal text-gray-400">(GitHub repo ref)</span></label>
+            <input v-model="newTeamForm.team_name" type="text" placeholder="e.g. ai-vision-team" class="field-input" />
           </div>
-
-          <button
-            type="submit"
-            :disabled="deleteLoading"
-            class="w-full py-3 px-4 bg-red-600 hover:bg-red-700 text-white text-xs font-bold rounded-lg shadow-md transition-all duration-200 cursor-pointer disabled:opacity-50"
-          >
-            Force Delete Group Record
+        </div>
+        <div class="modal-footer">
+          <button @click="showCreateTeamModal = false" class="btn-outline mr-3">Cancel</button>
+          <button @click="createTeam" :disabled="creatingTeam" class="btn-primary">
+            {{ creatingTeam ? 'Creating...' : 'Create Team' }}
           </button>
-        </form>
+        </div>
       </div>
+    </div>
 
+    <!-- Add Student Modal -->
+    <div v-if="showAddStudentModal" class="modal-overlay" @click.self="showAddStudentModal = false">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h3 class="text-lg font-bold text-gray-900">Assign Student to Team #{{ targetTeamId }}</h3>
+          <button @click="showAddStudentModal = false" class="text-gray-400 hover:text-gray-600">&times;</button>
+        </div>
+        <div class="modal-body">
+          <div class="form-field">
+            <label class="field-label">Student ID</label>
+            <input v-model="addStudentId" type="number" placeholder="Enter student ID" class="field-input" />
+            <p class="text-xs text-gray-500 mt-1">This student will be removed from any current team and placed into Team #{{ targetTeamId }}.</p>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button @click="showAddStudentModal = false" class="btn-outline mr-3">Cancel</button>
+          <button @click="assignStudent" :disabled="assigningStudent" class="btn-primary">
+            {{ assigningStudent ? 'Assigning...' : 'Assign Student' }}
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Logs Modal -->
+    <div v-if="showLogsModal" class="modal-overlay" @click.self="showLogsModal = false">
+      <div class="modal-content !max-w-2xl">
+        <div class="modal-header">
+          <h3 class="text-lg font-bold text-gray-900">Push Event Logs</h3>
+          <button @click="showLogsModal = false" class="text-gray-400 hover:text-gray-600">&times;</button>
+        </div>
+        <div class="modal-body max-h-[60vh] overflow-y-auto">
+          <div v-if="loadingLogs" class="py-12 flex justify-center">
+            <svg class="animate-spin h-8 w-8 text-[#124f9f]" fill="none" viewBox="0 0 24 24">
+              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+              <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
+            </svg>
+          </div>
+          <div v-else-if="logs.length === 0" class="text-center py-8 text-gray-500">
+            No push events recorded for this team.
+          </div>
+          <div v-else class="space-y-4">
+            <div v-for="log in logs" :key="log.id" class="bg-gray-50 border border-gray-200 rounded-lg p-4">
+              <div class="flex justify-between items-start">
+                <div>
+                  <p class="text-sm font-bold text-gray-900">Commit: <span class="font-mono text-[#124f9f]">{{ log.commit_hash }}</span></p>
+                  <p class="text-xs text-gray-500 mt-1">Timestamp: {{ log.timestamp }}</p>
+                </div>
+                <div>
+                  <span :class="statusBadgeClass(log.approval_status)">{{ log.approval_status }}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button @click="showLogsModal = false" class="btn-outline">Close</button>
+        </div>
+      </div>
     </div>
   </div>
 </template>
 
 <script setup>
-import { ref } from 'vue'
-import { useAuthStore } from '@/stores/auth'
-import axios from 'axios'
+import { ref, onMounted, computed } from 'vue'
+import api from '@/services/api'
 
-const authStore = useAuthStore()
+// Data
+const metrics = ref(null)
+const teams = ref([])
+const loadingMetrics = ref(true)
+const loadingTeams = ref(true)
+const searchQuery = ref('')
+const expandedRows = ref([])
 
-const successMsg = ref('')
-const errorMsg = ref('')
+// Modals State
+const showCreateTeamModal = ref(false)
+const newTeamForm = ref({ group_name: '', team_name: '' })
+const creatingTeam = ref(false)
 
-// Staff form
-const staffForm = ref({ email: '', password: '', role: 'coordinator' })
-const staffLoading = ref(false)
+const showAddStudentModal = ref(false)
+const targetTeamId = ref(null)
+const addStudentId = ref('')
+const assigningStudent = ref(false)
 
-// Force invite form
-const inviteForm = ref({ student_id: null, github_username: '' })
-const inviteLoading = ref(false)
+const showLogsModal = ref(false)
+const logs = ref([])
+const loadingLogs = ref(false)
 
-// Override form
-const overrideForm = ref({ student_id: null, name: '', email: '', group_id: null, github_username: '' })
-const overrideLoading = ref(false)
-
-// Delete group form
-const deleteGroupId = ref(null)
-const deleteLoading = ref(false)
-
-const clearMessages = () => {
-  successMsg.value = ''
-  errorMsg.value = ''
-}
-
-const handleProvisionStaff = async () => {
-  clearMessages()
-  staffLoading.value = true
+const fetchDashboardData = async () => {
   try {
-    const res = await axios.post('/api/v1/admin/users', staffForm.value, {
-      headers: { Authorization: `Bearer ${authStore.token}` },
-    })
-    successMsg.value = `Staff account (${res.data.email}) created successfully with role '${res.data.role}'.`
-    staffForm.value = { email: '', password: '', role: 'coordinator' }
-  } catch (err) {
-    errorMsg.value = err.response?.data?.detail || 'Failed to provision staff account.'
+    const [metricsRes, teamsRes] = await Promise.all([
+      api.get('/dashboard/overview'),
+      api.get('/coordinator/groups')
+    ])
+    metrics.value = metricsRes.data
+    teams.value = teamsRes.data
+  } catch (error) {
+    console.error("Failed to load dashboard data", error)
   } finally {
-    staffLoading.value = false
+    loadingMetrics.value = false
+    loadingTeams.value = false
   }
 }
 
-const handleForceInvite = async () => {
-  clearMessages()
-  inviteLoading.value = true
-  try {
-    const payload = {
-      student_id: inviteForm.value.student_id,
-      github_username: inviteForm.value.github_username || null,
-    }
-    const res = await axios.post('/api/v1/admin/github/force-invite', payload, {
-      headers: { Authorization: `Bearer ${authStore.token}` },
-    })
-    successMsg.value = res.data.message
-    inviteForm.value = { student_id: null, github_username: '' }
-  } catch (err) {
-    errorMsg.value = err.response?.data?.detail || 'Failed to dispatch force invitation.'
-  } finally {
-    inviteLoading.value = false
+const filteredTeams = computed(() => {
+  if (!searchQuery.value) return teams.value
+  const query = searchQuery.value.toLowerCase()
+  return teams.value.filter(t => 
+    t.group_name?.toLowerCase().includes(query) || 
+    t.team_name?.toLowerCase().includes(query) ||
+    t.id.toString() === query
+  )
+})
+
+const toggleRow = (id) => {
+  if (expandedRows.value.includes(id)) {
+    expandedRows.value = expandedRows.value.filter(rowId => rowId !== id)
+  } else {
+    expandedRows.value.push(id)
   }
 }
 
-const handleOverrideStudent = async () => {
-  clearMessages()
-  overrideLoading.value = true
+// Action: Create Team
+const createTeam = async () => {
+  if (!newTeamForm.value.group_name) return alert('Group name is required.')
+  creatingTeam.value = true
   try {
-    const studentId = overrideForm.value.student_id
-    const payload = {}
-    if (overrideForm.value.name) payload.name = overrideForm.value.name
-    if (overrideForm.value.email) payload.email = overrideForm.value.email
-    if (overrideForm.value.github_username) payload.github_username = overrideForm.value.github_username
-    payload.group_id = overrideForm.value.group_id // can be null or number
-
-    const res = await axios.patch(`/api/v1/admin/students/${studentId}`, payload, {
-      headers: { Authorization: `Bearer ${authStore.token}` },
+    await api.post('/admin/groups', {
+      group_name: newTeamForm.value.group_name,
+      team_name: newTeamForm.value.team_name || undefined
     })
-    successMsg.value = `Student record #${res.data.id} updated successfully.`
-    overrideForm.value = { student_id: null, name: '', email: '', group_id: null, github_username: '' }
-  } catch (err) {
-    errorMsg.value = err.response?.data?.detail || 'Failed to override student record.'
+    showCreateTeamModal.value = false
+    newTeamForm.value = { group_name: '', team_name: '' }
+    await fetchDashboardData()
+  } catch (error) {
+    alert(error.response?.data?.detail || 'Failed to create team')
   } finally {
-    overrideLoading.value = false
+    creatingTeam.value = false
   }
 }
 
-const handleDeleteGroup = async () => {
-  clearMessages()
-  if (!confirm(`Are you sure you want to force delete group #${deleteGroupId.value}?`)) return
-  deleteLoading.value = true
+// Action: Add Student
+const openAddStudentModal = (teamId) => {
+  targetTeamId.value = teamId
+  addStudentId.value = ''
+  showAddStudentModal.value = true
+}
+
+const assignStudent = async () => {
+  if (!addStudentId.value) return alert('Student ID is required.')
+  assigningStudent.value = true
   try {
-    const res = await axios.delete(`/api/v1/admin/groups/${deleteGroupId.value}`, {
-      headers: { Authorization: `Bearer ${authStore.token}` },
+    await api.patch(`/admin/students/${addStudentId.value}`, {
+      group_id: targetTeamId.value
     })
-    successMsg.value = res.data.message
-    deleteGroupId.value = null
-  } catch (err) {
-    errorMsg.value = err.response?.data?.detail || 'Failed to delete group.'
+    showAddStudentModal.value = false
+    await fetchDashboardData()
+  } catch (error) {
+    alert(error.response?.data?.detail || 'Failed to assign student')
   } finally {
-    deleteLoading.value = false
+    assigningStudent.value = false
   }
 }
+
+// Action: Force Invite
+const forceInvite = async (studentId, githubUsername) => {
+  if (!githubUsername) {
+    const customUsername = prompt('Student has no GitHub username linked. Enter GitHub username to send invite to:')
+    if (!customUsername) return
+    githubUsername = customUsername
+  }
+  
+  if (!confirm(`Force send GitHub organization invite to ${githubUsername}?`)) return
+  
+  try {
+    await api.post('/admin/github/force-invite', {
+      student_id: studentId,
+      github_username: githubUsername
+    })
+    alert('Invite dispatched successfully.')
+    await fetchDashboardData()
+  } catch (error) {
+    alert(error.response?.data?.detail || 'Failed to dispatch invite')
+  }
+}
+
+// Action: View Logs
+const openLogsModal = async (teamId) => {
+  showLogsModal.value = true
+  loadingLogs.value = true
+  logs.value = []
+  try {
+    const res = await api.get(`/admin/groups/${teamId}/logs`)
+    logs.value = res.data
+  } catch (error) {
+    console.error("Failed to load logs", error)
+  } finally {
+    loadingLogs.value = false
+  }
+}
+
+const statusBadgeClass = (statusVal) => {
+  const base = 'px-2.5 py-1 text-xs font-bold rounded-md uppercase tracking-wider border inline-block'
+  if (statusVal === 'approved') return `${base} bg-emerald-50 text-emerald-700 border-emerald-200`
+  if (statusVal === 'rejected') return `${base} bg-red-50 text-red-700 border-red-200`
+  if (statusVal === 'pending') return `${base} bg-amber-50 text-amber-700 border-amber-200`
+  return `${base} bg-slate-50 text-slate-700 border-slate-200`
+}
+
+const inviteBadgeClass = (inviteVal) => {
+  const base = 'px-2 py-0.5 text-[0.65rem] font-bold rounded-full uppercase tracking-wider border inline-block'
+  if (['sent', 'active'].includes(inviteVal)) return `${base} bg-emerald-100 text-emerald-700 border-emerald-200`
+  if (inviteVal === 'pending') return `${base} bg-amber-100 text-amber-700 border-amber-200`
+  return `${base} bg-slate-100 text-slate-500 border-slate-200`
+}
+
+onMounted(() => {
+  fetchDashboardData()
+})
 </script>
+
+<style scoped>
+/* Typography & Common */
+.admin-dashboard {
+  font-family: 'Inter', system-ui, sans-serif;
+}
+
+/* Header */
+.header-card {
+  @apply bg-white border border-gray-200 rounded-2xl p-6 md:p-8 shadow-sm relative overflow-hidden;
+  background: linear-gradient(120deg, #ffffff 0%, #fffbf8 100%);
+}
+.header-card::after {
+  content: '';
+  position: absolute;
+  top: 0; right: 0; bottom: 0;
+  width: 30%;
+  background: radial-gradient(circle at top right, rgba(159, 18, 18, 0.03), transparent 70%);
+  pointer-events: none;
+}
+.header-label {
+  @apply inline-flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-red-600 mb-2;
+}
+.pulse-dot {
+  @apply w-2 h-2 rounded-full bg-red-600;
+  animation: pulse 2s infinite;
+}
+.header-title {
+  @apply text-2xl md:text-3xl font-extrabold text-gray-900 tracking-tight;
+}
+.header-sub {
+  @apply text-sm md:text-base text-gray-500 mt-2;
+}
+
+/* Metrics Grid */
+.metrics-grid {
+  @apply grid grid-cols-1 md:grid-cols-3 gap-6;
+}
+.metric-card {
+  @apply bg-white border border-gray-100 rounded-2xl p-6 flex items-center gap-5 shadow-sm hover:shadow-md transition-all duration-300 relative overflow-hidden;
+}
+.metric-icon-box {
+  @apply w-12 h-12 rounded-xl flex items-center justify-center shrink-0;
+}
+.metric-info {
+  @apply flex flex-col;
+}
+.metric-label {
+  @apply text-xs font-bold text-gray-400 uppercase tracking-wider mb-1;
+}
+.metric-value {
+  @apply text-2xl font-black text-gray-900;
+}
+
+/* Table Card */
+.table-card {
+  @apply bg-white border border-gray-200 rounded-2xl shadow-sm overflow-hidden;
+}
+.table-header {
+  @apply p-6 border-b border-gray-100 flex flex-col md:flex-row md:items-center justify-between gap-4 bg-gray-50/50;
+}
+.table-title {
+  @apply text-lg font-bold text-gray-900;
+}
+.search-box {
+  @apply relative w-full md:w-72;
+}
+.search-icon {
+  @apply absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400;
+}
+.search-input {
+  @apply w-full pl-9 pr-4 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#124f9f] focus:border-transparent transition-shadow;
+}
+.data-table {
+  @apply w-full text-left border-collapse;
+}
+.data-table th {
+  @apply px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider border-b border-gray-200 bg-gray-50;
+}
+.data-table td {
+  @apply px-6 py-4 text-sm border-b border-gray-100;
+}
+.table-row {
+  @apply transition-colors hover:bg-slate-50;
+}
+.expand-btn {
+  @apply inline-flex items-center justify-end w-full text-sm font-semibold text-gray-600 hover:text-gray-900 transition-colors focus:outline-none;
+}
+
+/* Expanded Content */
+.expanded-row-bg {
+  @apply bg-slate-50/80 border-b border-gray-300 shadow-inner;
+}
+.expanded-content {
+  @apply p-6 border-l-4 border-red-500;
+  animation: slideDown 0.3s ease-out;
+}
+.detail-card {
+  @apply bg-white border border-gray-200 rounded-xl p-5 shadow-sm;
+}
+.detail-title {
+  @apply text-sm font-bold text-gray-400 uppercase tracking-wider mb-4 border-b border-gray-100 pb-2;
+}
+.detail-grid {
+  @apply grid grid-cols-2 gap-4;
+}
+.detail-label {
+  @apply text-xs font-semibold text-gray-500 mb-1;
+}
+.detail-value {
+  @apply text-sm font-medium text-gray-900;
+}
+
+.student-card {
+  @apply bg-gray-50 border border-gray-100 rounded-lg p-4 hover:border-gray-200 hover:shadow-sm transition-all;
+}
+
+/* Modals */
+.modal-overlay {
+  @apply fixed inset-0 bg-gray-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4;
+  animation: fadeIn 0.2s ease-out;
+}
+.modal-content {
+  @apply bg-white rounded-2xl w-full max-w-md overflow-hidden shadow-2xl;
+  animation: slideUp 0.3s ease-out;
+}
+.modal-header {
+  @apply px-6 py-4 border-b border-gray-100 flex justify-between items-center bg-gray-50/50;
+}
+.modal-body {
+  @apply p-6;
+}
+.modal-footer {
+  @apply px-6 py-4 border-t border-gray-100 flex justify-end bg-gray-50/50;
+}
+.form-field {
+  @apply flex flex-col;
+}
+.field-label {
+  @apply text-sm font-bold text-gray-700 mb-1;
+}
+.field-input {
+  @apply w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#124f9f] focus:border-transparent;
+}
+
+/* Buttons */
+.btn-primary {
+  @apply inline-flex items-center justify-center bg-[#124f9f] text-white font-bold text-sm px-5 py-2.5 rounded-xl hover:bg-blue-800 transition-colors shadow-sm focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#124f9f] disabled:opacity-50;
+}
+.btn-primary-sm {
+  @apply inline-flex items-center justify-center bg-[#124f9f] text-white font-semibold text-xs px-3 py-1.5 rounded-lg hover:bg-blue-800 transition-colors shadow-sm focus:outline-none disabled:opacity-50;
+}
+.btn-outline {
+  @apply inline-flex items-center justify-center border border-gray-300 bg-white text-gray-700 font-semibold text-xs md:text-sm px-4 py-2 rounded-xl hover:bg-gray-50 transition-colors shadow-sm focus:outline-none disabled:opacity-50;
+}
+
+/* Animations */
+@keyframes pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.6; transform: scale(1.2); }
+}
+@keyframes slideDown {
+  from { opacity: 0; transform: translateY(-10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(10px) scale(0.98); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+.animate-fade-in {
+  animation: fadeIn 0.5s ease-out;
+}
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+</style>

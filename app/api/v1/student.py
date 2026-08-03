@@ -15,7 +15,7 @@ router = APIRouter(tags=["Students"])
 
 
 # ---------------------------------------------------------------------------
-# Pydantic response schema for this router
+# Pydantic response schema
 # ---------------------------------------------------------------------------
 class StudentProfileResponse(BaseModel):
     id: int
@@ -33,7 +33,8 @@ class StudentProfileResponse(BaseModel):
 
 
 # ---------------------------------------------------------------------------
-# Helper: Build a GroupResponse from an ORM ProjectGroup object
+# Helper: build GroupResponse from a directly-queried ProjectGroup ORM object.
+# Only touches the 7 columns that physically exist in PostgreSQL.
 # ---------------------------------------------------------------------------
 def _build_group_response(group: ProjectGroup, current_student_id: int) -> GroupResponse:
     partners = [
@@ -51,12 +52,12 @@ def _build_group_response(group: ProjectGroup, current_student_id: int) -> Group
 
     return GroupResponse(
         id=group.id,
-        name=group.group_name or "",
-        project_title=group.project_title,
-        description=group.description,
-        status=group.status,
+        group_no=group.group_no,
+        group_name=group.group_name,
+        team_name=group.team_name,
         repo_name=group.repo_name,
         github_repo_url=group.github_repo_url,
+        status=group.status,
         member_emails=member_emails,
         partners=partners,
     )
@@ -64,7 +65,15 @@ def _build_group_response(group: ProjectGroup, current_student_id: int) -> Group
 
 # ---------------------------------------------------------------------------
 # GET /students/me
-# Return own profile + eagerly-loaded group + partners
+#
+# FIX: Do NOT use a nested joinedload(Student.group).joinedload(...) chain.
+# SQLAlchemy's identity map means the Student object loaded by the
+# get_current_student dependency is cached in the session WITHOUT its group
+# relationship loaded. A subsequent re-query for the same Student ID returns
+# that same cached object, leaving group=None even when group_id is set.
+#
+# Instead, we query the Student for its scalar fields, then separately and
+# explicitly query the ProjectGroup by group_id. This is bulletproof.
 # ---------------------------------------------------------------------------
 @router.get("/me", response_model=StudentProfileResponse, status_code=status.HTTP_200_OK)
 async def get_my_profile(
@@ -75,36 +84,39 @@ async def get_my_profile(
     Return the authenticated student's full profile, including their assigned
     project group details and the names/emails of all group partners.
     """
-    # Re-fetch with joinedload so group.students is populated in one query
-    student = (
-        db.query(Student)
-        .options(joinedload(Student.group).joinedload(ProjectGroup.students))
-        .filter(Student.id == current_student.id)
-        .first()
-    )
-
-    if not student:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Student record not found.",
-        )
+    # Expire the cached student object so SQLAlchemy re-reads all scalar columns
+    db.expire(current_student)
+    db.refresh(current_student)
 
     group_response: GroupResponse | None = None
-    if student.group_id and student.group:
-        group_response = _build_group_response(student.group, student.id)
 
-    role_str = student.role.value if hasattr(student.role, "value") else str(student.role)
+    if current_student.group_id:
+        # Query the group directly — avoids the identity-map problem entirely
+        group = (
+            db.query(ProjectGroup)
+            .options(joinedload(ProjectGroup.students))
+            .filter(ProjectGroup.id == current_student.group_id)
+            .first()
+        )
+        if group:
+            group_response = _build_group_response(group, current_student.id)
+
+    role_str = (
+        current_student.role.value
+        if hasattr(current_student.role, "value")
+        else str(current_student.role)
+    )
 
     return StudentProfileResponse(
-        id=student.id,
-        reg_id=student.reg_id,
-        name=student.name,
-        email=student.email,
+        id=current_student.id,
+        reg_id=current_student.reg_id,
+        name=current_student.name,
+        email=current_student.email,
         role=role_str,
-        is_verified=student.is_verified,
-        github_username=student.github_username,
-        invite_status=student.invite_status,
-        group_id=student.group_id,
+        is_verified=current_student.is_verified,
+        github_username=current_student.github_username,
+        invite_status=current_student.invite_status,
+        group_id=current_student.group_id,
         group=group_response,
     )
 
@@ -127,9 +139,11 @@ async def send_my_github_invite(
     their registered email address. No request body is required.
 
     Guards:
-    - Student must belong to a group (group_id is not None).
+    - Student must belong to a group.
     - The group must be in 'approved' status.
     """
+    db.refresh(current_student)
+
     if current_student.group_id is None:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -153,10 +167,9 @@ async def send_my_github_invite(
             detail="Your group proposal must be approved before a GitHub invite can be dispatched.",
         )
 
-    # Get or create the GroupRepository record
     repo = db.query(GroupRepository).filter(GroupRepository.group_id == group.id).first()
     if not repo:
-        repo_name = group.repo_name or group.name or f"fyp-group-{group.id}"
+        repo_name = group.repo_name or group.group_name or f"fyp-group-{group.id}"
         repo = GroupRepository(
             group_id=group.id,
             repo_name=repo_name,
@@ -165,7 +178,6 @@ async def send_my_github_invite(
         db.add(repo)
         db.flush()
 
-    # Dispatch invite via the GitHub service (email-based, no username input required)
     invite_sent = await send_org_invite(
         github_username=current_student.email,
         repo_name=repo.repo_name,
@@ -173,7 +185,6 @@ async def send_my_github_invite(
 
     new_status = "sent" if invite_sent else "pending"
 
-    # Upsert StudentGithubInvite record
     invite = (
         db.query(StudentGithubInvite)
         .filter(StudentGithubInvite.student_id == current_student.id)

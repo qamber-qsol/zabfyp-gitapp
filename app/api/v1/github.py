@@ -40,7 +40,7 @@ async def request_github_invite(
     # Get or create GroupRepository
     repo = db.query(GroupRepository).filter(GroupRepository.group_id == group.id).first()
     if not repo:
-        repo_name = group.repo_name or group.name or f"fyp-group-{group.id}"
+        repo_name = group.repo_name or group.group_name or f"fyp-group-{group.id}"
         repo = GroupRepository(
             group_id=group.id,
             repo_name=repo_name,

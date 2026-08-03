@@ -16,7 +16,7 @@ from app.schemas.coordinator import (
     StudentGithubInviteSchema,
     StudentInfo,
 )
-from app.schemas.group import GroupResponse
+from app.schemas.group import GroupResponse, PartnerInfo
 from app.services.email import send_group_status_email
 
 router = APIRouter(tags=["Coordinator Dashboard"])
@@ -28,7 +28,7 @@ async def list_groups(
     current_coordinator: Student = Depends(get_current_coordinator),
     db: Session = Depends(get_db),
 ) -> list[GroupResponse]:
-    query = db.query(ProjectGroup)
+    query = db.query(ProjectGroup).options(joinedload(ProjectGroup.students))
     if status_filter:
         query = query.filter(ProjectGroup.status == status_filter)
 
@@ -36,15 +36,32 @@ async def list_groups(
 
     response_list = []
     for g in groups:
-        member_emails = [s.email for s in g.students if s.email]
+        member_emails = []
+        partners = []
+        for s in g.students:
+            if s.email:
+                member_emails.append(s.email)
+            partners.append(
+                PartnerInfo(
+                    id=s.id,
+                    name=s.name,
+                    email=s.email,
+                    github_username=s.github_username,
+                    invite_status=s.invite_status,
+                )
+            )
+        
         response_list.append(
             GroupResponse(
                 id=g.id,
-                name=g.name or g.group_name or "",
-                project_title=g.project_title,
-                description=g.description,
+                group_no=g.group_no,
+                group_name=g.group_name,
+                team_name=g.team_name,
+                repo_name=g.repo_name,
+                github_repo_url=g.github_repo_url,
                 status=g.status,
                 member_emails=member_emails,
+                partners=partners,
             )
         )
 
@@ -72,7 +89,6 @@ async def get_group_details(
             detail=f"Project group with id {group_id} not found.",
         )
 
-    # Repository info
     repo = db.query(GroupRepository).filter(GroupRepository.group_id == group.id).first()
     repo_schema = (
         GroupRepositorySchema(
@@ -85,7 +101,6 @@ async def get_group_details(
         else None
     )
 
-    # Student invites
     student_ids = [s.id for s in group.students]
     invites = (
         db.query(StudentGithubInvite)
@@ -104,7 +119,6 @@ async def get_group_details(
         for inv in invites
     ]
 
-    # Members
     member_schemas = [
         StudentInfo(
             id=s.id,
@@ -117,7 +131,6 @@ async def get_group_details(
         for s in group.students
     ]
 
-    # Comments
     comment_schemas = [
         CommentSchema(
             id=c.id,
@@ -128,13 +141,14 @@ async def get_group_details(
         for c in group.comments
     ]
 
-    # Group response
     member_emails = [s.email for s in group.students if s.email]
     group_info = GroupResponse(
         id=group.id,
-        name=group.name or group.group_name or "",
-        project_title=group.project_title,
-        description=group.description,
+        group_no=group.group_no,
+        group_name=group.group_name,
+        team_name=group.team_name,
+        repo_name=group.repo_name,
+        github_repo_url=group.github_repo_url,
         status=group.status,
         member_emails=member_emails,
     )
@@ -180,24 +194,21 @@ async def update_group_status(
 
     member_emails = [s.email for s in group.students if s.email]
 
-    # Dispatch email notification in background
-    project_title = group.project_title or group.name or "Project Proposal"
+    # Use group_name for the email subject line
+    display_name = group.group_name or f"Group #{group.id}"
     background_tasks.add_task(
         send_group_status_email,
         member_emails,
-        project_title,
+        display_name,
         update_data.status,
         update_data.feedback,
     )
 
     return GroupStatusUpdateResponse(
         id=group.id,
-        name=group.name or group.group_name or "",
-        project_title=group.project_title,
-        description=group.description,
+        group_name=group.group_name,
+        team_name=group.team_name,
         status=group.status,
         member_emails=member_emails,
         feedback=feedback_text,
     )
-
-
