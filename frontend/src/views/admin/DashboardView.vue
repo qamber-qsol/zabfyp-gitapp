@@ -432,10 +432,7 @@ const showCreateTeamModal = ref(false)
 const newTeamForm = ref({ group_name: '', team_name: '' })
 const creatingTeam = ref(false)
 
-const showAddStudentModal = ref(false)
-const targetTeamId = ref(null)
-const addStudentId = ref('')
-const assigningStudent = ref(false)
+
 
 const showLogsModal = ref(false)
 const logs = ref([])
