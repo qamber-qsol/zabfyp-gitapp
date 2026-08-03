@@ -1,5 +1,9 @@
+import time
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
+from sqlalchemy import func
+
+from app.services.github_client import github_service
 
 from app.api.deps import get_current_admin
 from app.core.database import get_db
@@ -24,8 +28,41 @@ router = APIRouter(tags=["System Admin"], dependencies=[Depends(get_current_admi
 
 
 @router.get("/dashboard", status_code=status.HTTP_200_OK)
-def admin_dashboard():
-    return {"message": "Admin dashboard operational"}
+def admin_dashboard(
+    db: Session = Depends(get_db),
+):
+    # 1. Count actual students (ignoring admins/coordinators)
+    total_students = db.query(func.count(Student.id)).filter(Student.role == UserRole.STUDENT).scalar() or 0
+    
+    # 2. Count actual project groups
+    total_teams = db.query(func.count(ProjectGroup.id)).scalar() or 0
+    
+    # 3. Calculate GitHub sync progress
+    synced_invites = db.query(func.count(StudentGithubInvite.id)).filter(StudentGithubInvite.invite_status == "sent").scalar() or 0
+    
+    # 4. Fetch the raw list of teams to populate your data table
+    teams = db.query(ProjectGroup).all()
+    
+    # Format the teams for the frontend table
+    team_list = []
+    for team in teams:
+        team_list.append({
+            "id": team.id,
+            "group_name": team.group_name,
+            "team_name": team.team_name,
+            "status": team.status,
+            "github_repo_url": team.github_repo_url
+        })
+
+    return {
+        "metrics": {
+            "total_groups": total_teams,
+            "total_students": total_students,
+            "active_repositories": synced_invites,
+            "approved_groups": total_teams
+        },
+        "teams": team_list
+    }
 
 
 @router.post("/users", response_model=AdminUserResponse, status_code=status.HTTP_201_CREATED)
@@ -244,3 +281,72 @@ async def get_group_logs(
         }
         for event in events
     ]
+
+
+@router.post("/github/bulk-sync", status_code=status.HTTP_200_OK)
+def bulk_sync_github(db: Session = Depends(get_db)):
+    """
+    Finds all approved groups without a GitHub repo and provisions them
+    using the existing PyGithub service.
+    """
+    groups_to_sync = db.query(ProjectGroup).filter(
+        ProjectGroup.status == "approved",
+        ProjectGroup.github_repo_url.is_(None)
+    ).all()
+
+    if not groups_to_sync:
+        return {"message": "All approved groups are already synced.", "successful": 0}
+
+    results = {"successful": 0, "failed": 0, "details": []}
+
+    for group in groups_to_sync:
+        # Fallback names in case the DB fields are empty
+        repo_name = group.repo_name or f"fyp-{group.group_no or group.id}-{group.group_name.replace(' ', '-')}"
+        team_name = group.team_name or f"Team-{group.group_no or group.id}"
+        
+        # Extract emails from the linked students for the invites
+        student_emails = [s.email for s in group.students if s.email]
+        
+        try:
+            # 1. Trigger your existing GitHub Service
+            provision_results = github_service.provision_group(
+                repo_name=repo_name,
+                team_name=team_name,
+                student_emails=student_emails
+            )
+            
+            # 2. Update Database on Success
+            if provision_results.get("repo_created"):
+                from app.core.config import settings
+                
+                group.github_repo_url = f"https://github.com/{settings.GITHUB_ORG_NAME}/{repo_name}"
+                group.repo_name = repo_name
+                
+                # Log the invites in Postgres
+                for student in group.students:
+                    invite = db.query(StudentGithubInvite).filter_by(student_id=student.id).first()
+                    if invite:
+                        invite.invite_status = "sent"
+                    else:
+                        db.add(StudentGithubInvite(
+                            student_id=student.id, 
+                            github_username=student.github_username or student.email, 
+                            invite_status="sent"
+                        ))
+                        
+                db.commit()
+                results["successful"] += 1
+                results["details"].append(f"Success: {repo_name} (Invites sent: {provision_results.get('invites_sent')})")
+            else:
+                results["failed"] += 1
+                results["details"].append(f"Failed {repo_name}: {provision_results.get('errors')}")
+            
+        except Exception as e:
+            db.rollback()
+            results["failed"] += 1
+            results["details"].append(f"Exception on {repo_name}: {str(e)}")
+        
+        # 2-second rate limit protection between provisioning runs
+        time.sleep(2)
+
+    return results

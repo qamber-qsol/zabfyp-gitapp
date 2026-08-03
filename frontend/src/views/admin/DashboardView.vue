@@ -327,12 +327,9 @@ const loadingLogs = ref(false)
 
 const fetchDashboardData = async () => {
   try {
-    const [metricsRes, teamsRes] = await Promise.all([
-      api.get('/dashboard/overview'),
-      api.get('/coordinator/groups')
-    ])
-    metrics.value = metricsRes.data
-    teams.value = teamsRes.data
+    const res = await api.get('/admin/dashboard')
+    metrics.value = res.data.metrics
+    teams.value = res.data.teams
   } catch (error) {
     console.error("Failed to load dashboard data", error)
   } finally {
