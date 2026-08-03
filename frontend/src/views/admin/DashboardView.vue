@@ -143,8 +143,14 @@
                 <td class="font-medium text-gray-900">#{{ team.id }}</td>
                 <td class="font-semibold text-[#124f9f]">{{ team.group_name }}</td>
                 <td>{{ team.team_name || '—' }}</td>
-                <td>
-                  <span :class="statusBadgeClass(team.status)">{{ team.status }}</span>
+                <td @click.stop>
+                  <select v-model="team.status" @change="updateTeamStatus(team)" :class="statusBadgeClass(team.status) + ' cursor-pointer outline-none appearance-none pr-6 bg-no-repeat bg-right'">
+                    <option value="pending">PENDING</option>
+                    <option value="approved">APPROVED</option>
+                    <option value="synced">SYNCED</option>
+                    <option value="active">ACTIVE</option>
+                    <option value="completed">COMPLETED</option>
+                  </select>
                 </td>
                 <td>
                   <div class="flex -space-x-2 overflow-hidden">
@@ -179,7 +185,7 @@
                           </svg>
                           View Logs
                         </button>
-                        <button @click="openAddStudentModal(team.id)" class="btn-primary-sm">
+                        <button @click="openAssignModal(team.id)" class="btn-primary-sm">
                           <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
                           </svg>
@@ -318,22 +324,30 @@
       </div>
     </div>
 
-    <!-- Add Student Modal -->
-    <div v-if="showAddStudentModal" class="modal-overlay" @click.self="showAddStudentModal = false">
+    <!-- Assign Student Modal -->
+    <div v-if="showAssignModal" class="modal-overlay" @click.self="showAssignModal = false">
       <div class="modal-content">
         <div class="modal-header">
           <h3 class="text-lg font-bold text-gray-900">Assign Student to Team #{{ targetTeamId }}</h3>
-          <button @click="showAddStudentModal = false" class="text-gray-400 hover:text-gray-600">&times;</button>
+          <button @click="showAssignModal = false" class="text-gray-400 hover:text-gray-600">&times;</button>
         </div>
-        <div class="modal-body">
+        <div class="modal-body space-y-4">
           <div class="form-field">
-            <label class="field-label">Student ID</label>
-            <input v-model="addStudentId" type="number" placeholder="Enter student ID" class="field-input" />
-            <p class="text-xs text-gray-500 mt-1">This student will be removed from any current team and placed into Team #{{ targetTeamId }}.</p>
+            <label class="field-label">Select Student</label>
+            <select v-model="assignForm.student_id" class="field-input bg-white">
+              <option :value="null" disabled>-- Choose Unassigned Student --</option>
+              <option v-for="student in unassignedStudents" :key="student.id" :value="student.id">
+                {{ student.name || student.email }} (ID: {{ student.id }})
+              </option>
+            </select>
+          </div>
+          <div class="form-field">
+            <label class="field-label">GitHub Username</label>
+            <input v-model="assignForm.github_username" type="text" placeholder="e.g. octocat" class="field-input" />
           </div>
         </div>
         <div class="modal-footer">
-          <button @click="showAddStudentModal = false" class="btn-outline mr-3">Cancel</button>
+          <button @click="showAssignModal = false" class="btn-outline mr-3">Cancel</button>
           <button @click="assignStudent" :disabled="assigningStudent" class="btn-primary">
             {{ assigningStudent ? 'Assigning...' : 'Assign Student' }}
           </button>
@@ -501,21 +515,33 @@ const createTeam = async () => {
   }
 }
 
-// Action: Add Student
-const openAddStudentModal = (teamId) => {
+const showAssignModal = ref(false)
+const targetTeamId = ref(null)
+const assignForm = ref({ student_id: null, github_username: '' })
+const assigningStudent = ref(false)
+const unassignedStudents = ref([])
+
+const openAssignModal = async (teamId) => {
   targetTeamId.value = teamId
-  addStudentId.value = ''
-  showAddStudentModal.value = true
+  assignForm.value = { student_id: null, github_username: '' }
+  showAssignModal.value = true
+  try {
+    const res = await api.get('/admin/students/unassigned')
+    unassignedStudents.value = res.data
+  } catch (error) {
+    console.error("Failed to fetch unassigned students", error)
+  }
 }
 
 const assignStudent = async () => {
-  if (!addStudentId.value) return alert('Student ID is required.')
+  if (!assignForm.value.student_id || !assignForm.value.github_username) {
+    return alert('Please provide both student and GitHub username.')
+  }
   assigningStudent.value = true
   try {
-    await api.patch(`/admin/students/${addStudentId.value}`, {
-      group_id: targetTeamId.value
-    })
-    showAddStudentModal.value = false
+    await api.post(`/admin/groups/${targetTeamId.value}/assign-student`, assignForm.value)
+    alert('Student assigned and invitation dispatched successfully!')
+    showAssignModal.value = false
     await fetchDashboardData()
   } catch (error) {
     alert(error.response?.data?.detail || 'Failed to assign student')
@@ -574,6 +600,16 @@ const inviteBadgeClass = (inviteVal) => {
   if (['sent', 'active'].includes(inviteVal)) return `${base} bg-emerald-100 text-emerald-700 border-emerald-200`
   if (inviteVal === 'pending') return `${base} bg-amber-100 text-amber-700 border-amber-200`
   return `${base} bg-slate-100 text-slate-500 border-slate-200`
+}
+
+const updateTeamStatus = async (team) => {
+  try {
+    await api.patch(`/admin/groups/${team.id}/status`, { status: team.status })
+  } catch (error) {
+    console.error("Failed to update team status", error)
+    alert("Failed to update team status")
+    await fetchDashboardData() // revert to server state
+  }
 }
 
 onMounted(() => {

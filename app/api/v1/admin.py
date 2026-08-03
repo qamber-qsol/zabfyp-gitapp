@@ -19,18 +19,14 @@ from app.schemas.admin import (
     ForceInviteRequest,
     StudentOverrideUpdate,
     UserCreate,
+    CreateUserRequest,
+    AssignStudentRequest,
+    GroupStatusUpdate,
 )
 from app.schemas.coordinator import StudentInfo
 from app.schemas.group import GroupCreate, GroupResponse
 from app.services.github import send_org_invite
 from app.models.webhook import PushEvent
-from pydantic import BaseModel
-
-class CreateUserRequest(BaseModel):
-    name: str
-    email: str
-    identifier_id: str
-    role: str
 
 router = APIRouter(tags=["System Admin"], dependencies=[Depends(get_current_admin)])
 
@@ -426,3 +422,48 @@ async def sync_github(db: Session = Depends(get_db)):
         await asyncio.sleep(2)
         
     return {"message": "Sync completed", "synced": len([r for r in results if r["status"] == "success"]), "details": results}
+
+@router.patch("/groups/{group_id}/status", status_code=status.HTTP_200_OK)
+async def update_group_status(
+    group_id: int,
+    req: GroupStatusUpdate,
+    db: Session = Depends(get_db)
+):
+    group = db.query(ProjectGroup).filter(ProjectGroup.id == group_id).first()
+    if not group:
+        raise HTTPException(status_code=404, detail="Project group not found.")
+    
+    group.status = req.status
+    db.commit()
+    return {"message": "Group status updated successfully", "status": group.status}
+
+@router.get("/students/unassigned", status_code=status.HTTP_200_OK)
+async def get_unassigned_students(db: Session = Depends(get_db)):
+    students = db.query(Student).filter(
+        Student.group_id.is_(None),
+        Student.role == UserRole.STUDENT
+    ).all()
+    return [{"id": s.id, "name": s.name, "email": s.email} for s in students]
+
+@router.post("/groups/{group_id}/assign-student", status_code=status.HTTP_200_OK)
+async def assign_student_to_group(
+    group_id: int,
+    req: AssignStudentRequest,
+    db: Session = Depends(get_db)
+):
+    group = db.query(ProjectGroup).filter(ProjectGroup.id == group_id).first()
+    student = db.query(Student).filter(Student.id == req.student_id).first()
+    
+    if not group or not student:
+        raise HTTPException(status_code=404, detail="Student or ProjectGroup not found.")
+        
+    student.group_id = group_id
+    student.github_username = req.github_username
+    
+    await send_org_invite(
+        github_username=req.github_username,
+        repo_name=group.repo_name or group.group_name
+    )
+    
+    db.commit()
+    return {"message": "Student assigned and invitation dispatched successfully."}

@@ -33,3 +33,16 @@ class AdminUserResponse(BaseModel):
 class AdminActionResponse(BaseModel):
     message: str
     detail: str | None = None
+
+class CreateUserRequest(BaseModel):
+    name: str
+    email: str
+    identifier_id: str
+    role: str
+
+class AssignStudentRequest(BaseModel):
+    student_id: int
+    github_username: str
+
+class GroupStatusUpdate(BaseModel):
+    status: str
