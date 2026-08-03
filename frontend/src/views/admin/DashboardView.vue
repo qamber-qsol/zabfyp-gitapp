@@ -145,11 +145,11 @@
                 </td>
                 <td>
                   <div class="flex -space-x-2 overflow-hidden">
-                    <div v-for="(p, i) in team.partners.slice(0, 3)" :key="i" class="inline-block h-8 w-8 rounded-full ring-2 ring-white bg-gradient-to-br from-[#124f9f] to-blue-400 flex items-center justify-center text-white text-xs font-bold" :title="p.name || p.email">
+                    <div v-for="(p, i) in team.partners?.slice(0, 3) || []" :key="i" class="inline-block h-8 w-8 rounded-full ring-2 ring-white bg-gradient-to-br from-[#124f9f] to-blue-400 flex items-center justify-center text-white text-xs font-bold" :title="p.name || p.email">
                       {{ (p.name || p.email).charAt(0).toUpperCase() }}
                     </div>
-                    <div v-if="team.partners.length > 3" class="inline-block h-8 w-8 rounded-full ring-2 ring-white bg-gray-200 flex items-center justify-center text-gray-600 text-xs font-bold">
-                      +{{ team.partners.length - 3 }}
+                    <div v-if="(team.partners?.length || 0) > 3" class="inline-block h-8 w-8 rounded-full ring-2 ring-white bg-gray-200 flex items-center justify-center text-gray-600 text-xs font-bold">
+                      +{{ (team.partners?.length || 0) - 3 }}
                     </div>
                   </div>
                 </td>
@@ -204,9 +204,9 @@
 
                       <!-- Student List with Action -->
                       <div class="detail-card lg:row-span-2">
-                        <h4 class="detail-title">Team Members ({{ team.partners.length }})</h4>
+                        <h4 class="detail-title">Team Members ({{ team.partners?.length || 0 }})</h4>
                         <div class="space-y-4 mt-4">
-                          <div v-for="partner in team.partners" :key="partner.id" class="student-card">
+                          <div v-for="partner in team.partners || []" :key="partner.id" class="student-card">
                             <div class="flex justify-between items-center">
                               <div>
                                 <p class="font-bold text-gray-900">{{ partner.name || 'Unknown' }}</p>
@@ -225,7 +225,7 @@
                               </div>
                             </div>
                           </div>
-                          <div v-if="team.partners.length === 0" class="text-sm text-gray-400 py-4 text-center">
+                          <div v-if="!team.partners || team.partners.length === 0" class="text-sm text-gray-400 py-4 text-center">
                             No students assigned yet. Use 'Add Student' above.
                           </div>
                         </div>
@@ -402,8 +402,8 @@ const triggerBulkSync = async () => {
 const fetchDashboardData = async () => {
   try {
     const res = await api.get('/admin/dashboard')
-    metrics.value = res.data.metrics
-    teams.value = res.data.teams
+    metrics.value = res.data.metrics || null
+    teams.value = res.data.teams || []
   } catch (error) {
     console.error("Failed to load dashboard data", error)
   } finally {
