@@ -22,6 +22,47 @@
       </div>
     </div>
 
+    <!-- GitHub Sync Control Panel -->
+    <div class="mb-6 p-6 bg-white rounded-2xl shadow-sm border border-gray-200 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+      <div>
+        <h3 class="text-lg font-bold text-gray-900">GitHub Bulk Provisioning</h3>
+        <p class="text-sm text-gray-500">Automatically generate private repositories and dispatch organization invites to all approved project groups.</p>
+      </div>
+      
+      <button 
+        @click="triggerBulkSync" 
+        :disabled="isSyncing"
+        class="btn-primary flex items-center shrink-0"
+      >
+        <svg v-if="isSyncing" class="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+          <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+          <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+        </svg>
+        <span v-if="isSyncing">Syncing to GitHub...</span>
+        <span v-else>
+          <svg class="w-5 h-5 inline-block mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+          </svg>
+          Sync All to GitHub
+        </span>
+      </button>
+    </div>
+
+    <!-- Sync Log Results -->
+    <div v-if="syncResults?.details?.length > 0" class="mb-6 p-5 bg-gray-50 rounded-xl border border-gray-200 text-sm font-mono text-gray-700 overflow-y-auto max-h-64 shadow-inner">
+      <div class="flex justify-between items-center mb-3">
+        <p class="font-bold text-gray-900">Sync Execution Log:</p>
+        <button @click="syncResults = null" class="text-gray-400 hover:text-gray-600 text-xs font-sans font-bold">Clear</button>
+      </div>
+      <ul class="space-y-1">
+        <li v-for="(detail, index) in syncResults.details" :key="index" 
+            :class="{'text-red-600': detail.includes('Failed') || detail.includes('Exception'), 'text-emerald-600': detail.includes('Success')}">
+          > {{ detail }}
+        </li>
+        <li v-if="syncResults.details.length === 0" class="text-gray-500 italic">No operations performed.</li>
+      </ul>
+    </div>
+
     <!-- Metrics Row -->
     <div v-if="metrics" class="metrics-grid">
       <div class="metric-card group hover:-translate-y-1 transition-transform duration-300">
@@ -324,6 +365,39 @@ const assigningStudent = ref(false)
 const showLogsModal = ref(false)
 const logs = ref([])
 const loadingLogs = ref(false)
+
+// Bulk Sync State
+const isSyncing = ref(false)
+const syncResults = ref(null)
+
+const triggerBulkSync = async () => {
+  if (!confirm("Are you sure you want to provision GitHub repositories for all approved teams? This may take several minutes.")) {
+    return
+  }
+
+  isSyncing.value = true
+  syncResults.value = null
+
+  try {
+    const response = await api.post('/admin/github/bulk-sync')
+    syncResults.value = response.data
+    
+    // Check if it was an early exit message, otherwise show the full stats
+    if (response.data.message) {
+        alert(response.data.message)
+    } else {
+        alert(`GitHub Sync Complete!\nSuccessfully provisioned: ${response.data.successful}\nFailed: ${response.data.failed}`)
+    }
+    
+    // Refresh dashboard metrics
+    await fetchDashboardData()
+  } catch (error) {
+    console.error("Bulk sync failed:", error)
+    alert(error.response?.data?.detail || "An error occurred while communicating with the server during the bulk sync.")
+  } finally {
+    isSyncing.value = false
+  }
+}
 
 const fetchDashboardData = async () => {
   try {

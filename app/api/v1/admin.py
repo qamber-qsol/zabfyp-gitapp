@@ -295,7 +295,12 @@ def bulk_sync_github(db: Session = Depends(get_db)):
     ).all()
 
     if not groups_to_sync:
-        return {"message": "All approved groups are already synced.", "successful": 0}
+        return {
+            "message": "No pending approved groups found to sync.", 
+            "successful": 0,
+            "failed": 0,
+            "details": []
+        }
 
     results = {"successful": 0, "failed": 0, "details": []}
 
