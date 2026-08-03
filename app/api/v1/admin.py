@@ -23,6 +23,13 @@ from app.schemas.coordinator import StudentInfo
 from app.schemas.group import GroupCreate, GroupResponse
 from app.services.github import send_org_invite
 from app.models.webhook import PushEvent
+from pydantic import BaseModel
+
+class CreateUserRequest(BaseModel):
+    name: str
+    email: str
+    identifier_id: str
+    role: str
 
 router = APIRouter(tags=["System Admin"], dependencies=[Depends(get_current_admin)])
 
@@ -355,3 +362,28 @@ def bulk_sync_github(db: Session = Depends(get_db)):
         time.sleep(2)
 
     return results
+
+@router.post("/create-user", status_code=status.HTTP_201_CREATED)
+async def create_user(
+    req: CreateUserRequest,
+    db: Session = Depends(get_db),
+):
+    clean_email = req.email.strip().lower()
+    existing_user = db.query(Student).filter(Student.email == clean_email).first()
+    if existing_user:
+        raise HTTPException(status_code=400, detail="Email already exists.")
+        
+    target_role = UserRole.COORDINATOR if req.role.upper() == "COORDINATOR" else UserRole.STUDENT
+    
+    new_user = Student(
+        name=req.name,
+        email=clean_email,
+        reg_id=req.identifier_id,
+        role=target_role,
+        hashed_password=get_password_hash("defaultpass123"),
+        is_verified=True
+    )
+    db.add(new_user)
+    db.commit()
+    
+    return {"message": "User created successfully"}

@@ -11,7 +11,10 @@
           <h2 class="header-title">Full System Control</h2>
           <p class="header-sub">Manage teams, assign students, and monitor activity.</p>
         </div>
-        <div>
+        <div class="flex gap-3">
+          <button @click="showUserModal = true" class="btn-outline">
+            Manage Users
+          </button>
           <button @click="showCreateTeamModal = true" class="btn-primary">
             <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
@@ -252,6 +255,43 @@
 
     <!-- Modals -->
 
+    <!-- Manage Users Modal -->
+    <div v-if="showUserModal" class="modal-overlay" @click.self="showUserModal = false">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h3 class="text-lg font-bold text-gray-900">Create New User</h3>
+          <button @click="showUserModal = false" class="text-gray-400 hover:text-gray-600">&times;</button>
+        </div>
+        <div class="modal-body space-y-4">
+          <div class="form-field">
+            <label class="field-label">Name</label>
+            <input v-model="newUserForm.name" type="text" class="field-input" placeholder="Full Name" />
+          </div>
+          <div class="form-field">
+            <label class="field-label">Email</label>
+            <input v-model="newUserForm.email" type="email" class="field-input" placeholder="user@example.com" />
+          </div>
+          <div class="form-field">
+            <label class="field-label">Identifier ID</label>
+            <input v-model="newUserForm.identifier_id" type="text" class="field-input" placeholder="Student/Staff ID" />
+          </div>
+          <div class="form-field">
+            <label class="field-label">Role</label>
+            <select v-model="newUserForm.role" class="field-input bg-white">
+              <option value="STUDENT">Student</option>
+              <option value="COORDINATOR">Coordinator</option>
+            </select>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button @click="showUserModal = false" class="btn-outline mr-3">Cancel</button>
+          <button @click="submitUser" :disabled="submittingUser" class="btn-primary">
+            {{ submittingUser ? 'Creating...' : 'Create User' }}
+          </button>
+        </div>
+      </div>
+    </div>
+
     <!-- Create Team Modal -->
     <div v-if="showCreateTeamModal" class="modal-overlay" @click.self="showCreateTeamModal = false">
       <div class="modal-content">
@@ -353,6 +393,27 @@ const searchQuery = ref('')
 const expandedRows = ref([])
 
 // Modals State
+const showUserModal = ref(false)
+const newUserForm = ref({ name: '', email: '', identifier_id: '', role: 'STUDENT' })
+const submittingUser = ref(false)
+
+const submitUser = async () => {
+  if (!newUserForm.value.name || !newUserForm.value.email || !newUserForm.value.identifier_id) {
+    return alert('Please fill all required fields.')
+  }
+  submittingUser.value = true
+  try {
+    await api.post('/admin/create-user', newUserForm.value)
+    alert('User created successfully!')
+    showUserModal.value = false
+    newUserForm.value = { name: '', email: '', identifier_id: '', role: 'STUDENT' }
+  } catch (error) {
+    alert(error.response?.data?.detail || 'Failed to create user')
+  } finally {
+    submittingUser.value = false
+  }
+}
+
 const showCreateTeamModal = ref(false)
 const newTeamForm = ref({ group_name: '', team_name: '' })
 const creatingTeam = ref(false)
