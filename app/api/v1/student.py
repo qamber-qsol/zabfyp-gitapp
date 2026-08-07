@@ -1,214 +1,148 @@
-from fastapi import APIRouter, Depends, HTTPException, status
-from pydantic import BaseModel, ConfigDict
-from sqlalchemy.orm import Session, joinedload
+import random
+from datetime import datetime, timedelta, timezone
 
-from app.api.deps import get_current_student
+from fastapi import APIRouter, Depends, HTTPException
+from pydantic import BaseModel, EmailStr
+from sqlalchemy.orm import Session
+from fastapi_mail import FastMail, MessageSchema, MessageType
+
 from app.core.database import get_db
 from app.models.group import ProjectGroup
-from app.models.repository import GroupRepository, StudentGithubInvite
 from app.models.student import Student
-from app.schemas.github import InviteStatusResponse
-from app.schemas.group import GroupResponse, PartnerInfo
-from app.services.github import send_org_invite
+from app.services.email import send_otp_email, conf
+from app.services.github_client import github_service
 
-router = APIRouter(tags=["Students"])
+router = APIRouter()
 
-
-# ---------------------------------------------------------------------------
-# Pydantic response schema
-# ---------------------------------------------------------------------------
-class StudentProfileResponse(BaseModel):
+class GroupResponse(BaseModel):
     id: int
-    reg_id: str | None = None
-    name: str | None = None
+    group_no: str | None
+    group_name: str | None
+
+class MemberResponse(BaseModel):
+    id: int
+    name: str | None
     email: str
-    role: str
-    is_verified: bool
-    github_username: str | None = None
-    invite_status: str | None = None
-    group_id: int | None = None
-    group: GroupResponse | None = None
+    reg_id: str | None
 
-    model_config = ConfigDict(from_attributes=True)
+class RequestOTP(BaseModel):
+    email: EmailStr
 
+class VerifyOTP(BaseModel):
+    email: EmailStr
+    otp: str
 
-# ---------------------------------------------------------------------------
-# Helper: build GroupResponse from a directly-queried ProjectGroup ORM object.
-# Only touches the 7 columns that physically exist in PostgreSQL.
-# ---------------------------------------------------------------------------
-def _build_group_response(group: ProjectGroup, current_student_id: int) -> GroupResponse:
-    partners = [
-        PartnerInfo(
-            id=s.id,
-            name=s.name,
-            email=s.email,
-            github_username=s.github_username,
-            invite_status=s.invite_status,
-        )
-        for s in group.students
-        if s.id != current_student_id
-    ]
-    member_emails = [s.email for s in group.students if s.email]
+class GithubInvite(BaseModel):
+    email: EmailStr
+    github_username: str
 
-    return GroupResponse(
-        id=group.id,
-        group_no=group.group_no,
-        group_name=group.group_name,
-        team_name=group.team_name,
-        repo_name=group.repo_name,
-        github_repo_url=group.github_repo_url,
-        status=group.status,
-        member_emails=member_emails,
-        partners=partners,
-    )
+class ChangeEmailRequest(BaseModel):
+    old_email: EmailStr
+    new_email: EmailStr
+    student_name: str
+    student_id: int
+    group_id: int
+    group_name: str
 
+@router.get("/groups", response_model=list[GroupResponse])
+def get_groups(db: Session = Depends(get_db)):
+    return db.query(ProjectGroup).all()
 
-# ---------------------------------------------------------------------------
-# GET /students/me
-#
-# FIX: Do NOT use a nested joinedload(Student.group).joinedload(...) chain.
-# SQLAlchemy's identity map means the Student object loaded by the
-# get_current_student dependency is cached in the session WITHOUT its group
-# relationship loaded. A subsequent re-query for the same Student ID returns
-# that same cached object, leaving group=None even when group_id is set.
-#
-# Instead, we query the Student for its scalar fields, then separately and
-# explicitly query the ProjectGroup by group_id. This is bulletproof.
-# ---------------------------------------------------------------------------
-@router.get("/me", response_model=StudentProfileResponse, status_code=status.HTTP_200_OK)
-async def get_my_profile(
-    current_student: Student = Depends(get_current_student),
-    db: Session = Depends(get_db),
-) -> StudentProfileResponse:
-    """
-    Return the authenticated student's full profile, including their assigned
-    project group details and the names/emails of all group partners.
-    """
-    # Expire the cached student object so SQLAlchemy re-reads all scalar columns
-    db.expire(current_student)
-    db.refresh(current_student)
-
-    group_response: GroupResponse | None = None
-
-    if current_student.group_id:
-        # Query the group directly — avoids the identity-map problem entirely
-        group = (
-            db.query(ProjectGroup)
-            .options(joinedload(ProjectGroup.students))
-            .filter(ProjectGroup.id == current_student.group_id)
-            .first()
-        )
-        if group:
-            group_response = _build_group_response(group, current_student.id)
-
-    role_str = (
-        current_student.role.value
-        if hasattr(current_student.role, "value")
-        else str(current_student.role)
-    )
-
-    return StudentProfileResponse(
-        id=current_student.id,
-        reg_id=current_student.reg_id,
-        name=current_student.name,
-        email=current_student.email,
-        role=role_str,
-        is_verified=current_student.is_verified,
-        github_username=current_student.github_username,
-        invite_status=current_student.invite_status,
-        group_id=current_student.group_id,
-        group=group_response,
-    )
-
-
-# ---------------------------------------------------------------------------
-# POST /students/me/github-invite
-# One-click GitHub org invite dispatched to the student's registered email
-# ---------------------------------------------------------------------------
-@router.post(
-    "/me/github-invite",
-    response_model=InviteStatusResponse,
-    status_code=status.HTTP_200_OK,
-)
-async def send_my_github_invite(
-    current_student: Student = Depends(get_current_student),
-    db: Session = Depends(get_db),
-) -> InviteStatusResponse:
-    """
-    Trigger a GitHub organization invite for the authenticated student using
-    their registered email address. No request body is required.
-
-    Guards:
-    - Student must belong to a group.
-    - The group must be in 'approved' status.
-    """
-    db.refresh(current_student)
-
-    if current_student.group_id is None:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="You are not assigned to any project group yet.",
-        )
-
-    group = (
-        db.query(ProjectGroup)
-        .filter(ProjectGroup.id == current_student.group_id)
-        .first()
-    )
+@router.get("/groups/{group_id}/members", response_model=list[MemberResponse])
+def get_group_members(group_id: int, db: Session = Depends(get_db)):
+    group = db.query(ProjectGroup).filter(ProjectGroup.id == group_id).first()
     if not group:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Assigned project group was not found.",
-        )
+        raise HTTPException(status_code=404, detail="Group not found")
+    return group.students
 
-    if (group.status or "").lower() != "approved":
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Your group proposal must be approved before a GitHub invite can be dispatched.",
-        )
-
-    repo = db.query(GroupRepository).filter(GroupRepository.group_id == group.id).first()
-    if not repo:
-        repo_name = group.repo_name or group.group_name or f"fyp-group-{group.id}"
-        repo = GroupRepository(
-            group_id=group.id,
-            repo_name=repo_name,
-            status="pending_creation",
-        )
-        db.add(repo)
-        db.flush()
-
-    invite_sent = await send_org_invite(
-        github_username=current_student.email,
-        repo_name=repo.repo_name,
-    )
-
-    new_status = "sent" if invite_sent else "pending"
-
-    invite = (
-        db.query(StudentGithubInvite)
-        .filter(StudentGithubInvite.student_id == current_student.id)
-        .first()
-    )
-    if invite:
-        invite.invite_status = new_status
-    else:
-        invite = StudentGithubInvite(
-            student_id=current_student.id,
-            github_username=current_student.github_username or current_student.email,
-            invite_status=new_status,
-        )
-        db.add(invite)
-
-    current_student.invite_status = new_status
-
+@router.post("/request-otp")
+async def request_otp(data: RequestOTP, db: Session = Depends(get_db)):
+    student = db.query(Student).filter(Student.email == data.email).first()
+    if not student:
+        raise HTTPException(status_code=404, detail="Student not found")
+    
+    otp = f"{random.randint(100000, 999999)}"
+    student.otp_code = otp
+    student.otp_expires_at = datetime.now(timezone.utc) + timedelta(minutes=15)
     db.commit()
-    db.refresh(repo)
-    db.refresh(invite)
+    
+    await send_otp_email(student.email, otp)
+    return {"message": "OTP sent successfully"}
 
-    return InviteStatusResponse(
-        github_username=invite.github_username,
-        invite_status=invite.invite_status,
-        repo_name=repo.repo_name,
-        repo_status=repo.status,
+@router.post("/verify-otp")
+def verify_otp(data: VerifyOTP, db: Session = Depends(get_db)):
+    student = db.query(Student).filter(Student.email == data.email).first()
+    if not student:
+        raise HTTPException(status_code=404, detail="Student not found")
+    
+    if student.otp_code != data.otp:
+        raise HTTPException(status_code=400, detail="Invalid OTP")
+    
+    if student.otp_expires_at and student.otp_expires_at < datetime.now(timezone.utc):
+        raise HTTPException(status_code=400, detail="OTP expired")
+    
+    student.otp_code = None
+    db.commit()
+    db.refresh(student)
+    
+    group = student.group
+    return {
+        "student": {
+            "id": student.id,
+            "name": student.name,
+            "email": student.email,
+        },
+        "group": {
+            "id": group.id if group else None,
+            "group_name": group.group_name if group else None,
+            "group_no": group.group_no if group else None,
+            "github_repo_url": group.github_repo_url if group else None
+        }
+    }
+
+@router.post("/github-invite")
+def github_invite(data: GithubInvite, db: Session = Depends(get_db)):
+    student = db.query(Student).filter(Student.email == data.email).first()
+    if not student:
+        raise HTTPException(status_code=404, detail="Student not found")
+    
+    student.github_username = data.github_username
+    db.commit()
+    
+    group = student.group
+    if not group:
+        raise HTTPException(status_code=400, detail="Student has no group")
+    
+    if not group.repo_name or not group.team_name:
+        raise HTTPException(status_code=400, detail="Group repository or team not set up")
+    
+    results = github_service.provision_group(
+        repo_name=group.repo_name,
+        team_name=group.team_name,
+        student_emails=[student.email]
     )
+    
+    if results.get("errors"):
+        raise HTTPException(status_code=400, detail=f"GitHub invite failed: {results['errors']}")
+        
+    return {"message": "Invite dispatched successfully"}
+
+@router.post("/change-email-request")
+async def change_email_request(data: ChangeEmailRequest):
+    html_content = f"""
+    <h3>Email Change Request</h3>
+    <p>Student Name: {data.student_name} (ID: {data.student_id})</p>
+    <p>Group: {data.group_name} (ID: {data.group_id})</p>
+    <p>Old Email: {data.old_email}</p>
+    <p>New Email: {data.new_email}</p>
+    """
+    
+    message = MessageSchema(
+        subject="Student Email Change Request",
+        recipients=["qambar.ali@szabist.pk"],
+        body=html_content,
+        subtype=MessageType.html,
+    )
+    fm = FastMail(conf)
+    await fm.send_message(message)
+    return {"message": "Support request sent successfully"}

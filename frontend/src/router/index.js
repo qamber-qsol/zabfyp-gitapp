@@ -61,6 +61,11 @@ const routes = [
     meta: { requiresAuth: true, roles: ['admin'] }
   },
   {
+    path: '/student-portal',
+    name: 'StudentPortal',
+    component: () => import('../views/student/StudentPortalView.vue')
+  },
+  {
     path: '/:pathMatch(.*)*',
     redirect: '/login',
   },
