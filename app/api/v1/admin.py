@@ -32,30 +32,32 @@ router = APIRouter(tags=["System Admin"], dependencies=[Depends(get_current_admi
 
 
 @router.get("/dashboard", status_code=status.HTTP_200_OK)
-def admin_dashboard(
-    db: Session = Depends(get_db),
-):
-    # 1. Count actual students (ignoring admins/coordinators)
+def admin_dashboard(db: Session = Depends(get_db)):
     total_students = db.query(func.count(Student.id)).filter(Student.role == UserRole.STUDENT).scalar() or 0
-    
-    # 2. Count actual project groups
     total_teams = db.query(func.count(ProjectGroup.id)).scalar() or 0
-    
-    # 3. Calculate GitHub sync progress
     synced_invites = db.query(func.count(StudentGithubInvite.id)).filter(StudentGithubInvite.invite_status == "sent").scalar() or 0
     
-    # 4. Fetch the raw list of teams to populate your data table
     teams = db.query(ProjectGroup).all()
     
-    # Format the teams for the frontend table
     team_list = []
     for team in teams:
+        # Extract the students linked to this specific group
+        members = []
+        for s in team.students:
+            members.append({
+                "id": s.id, 
+                "name": s.name, 
+                "email": s.email, 
+                "github_username": s.github_username
+            })
+            
         team_list.append({
             "id": team.id,
             "group_name": team.group_name,
             "team_name": team.team_name,
             "status": team.status,
-            "github_repo_url": team.github_repo_url
+            "github_repo_url": team.github_repo_url,
+            "members": members # THIS IS THE MISSING LINK
         })
 
     return {
@@ -467,3 +469,61 @@ async def assign_student_to_group(
     
     db.commit()
     return {"message": "Student assigned and invitation dispatched successfully."}
+
+@router.get("/users", status_code=status.HTTP_200_OK)
+def get_all_users(db: Session = Depends(get_db)):
+    users = db.query(Student).order_by(Student.id.desc()).all()
+    return [
+        {
+            "id": u.id, 
+            "name": u.name, 
+            "email": u.email, 
+            "reg_id": u.reg_id, 
+            "role": str(u.role).split('.')[-1] if hasattr(u.role, 'name') else str(u.role), 
+            "github_username": u.github_username, 
+            "group_id": u.group_id
+        } 
+        for u in users
+    ]
+
+from pydantic import BaseModel
+from typing import Optional
+
+# Schemas for request validation
+class UserCreateUpdate(BaseModel):
+    name: str
+    email: str
+    reg_id: Optional[str] = None
+    role: str = "STUDENT"
+    github_username: Optional[str] = None
+    group_id: Optional[int] = None
+
+@router.post("/users", status_code=status.HTTP_201_CREATED)
+def create_user(user_data: UserCreateUpdate, db: Session = Depends(get_db)):
+    new_user = Student(**user_data.dict())
+    db.add(new_user)
+    db.commit()
+    db.refresh(new_user)
+    return {"message": "User created successfully", "id": new_user.id}
+
+@router.put("/users/{user_id}", status_code=status.HTTP_200_OK)
+def update_user(user_id: int, user_data: UserCreateUpdate, db: Session = Depends(get_db)):
+    user = db.query(Student).filter(Student.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    for key, value in user_data.dict().items():
+        setattr(user, key, value)
+        
+    db.commit()
+    return {"message": "User updated successfully"}
+
+@router.delete("/users/{user_id}", status_code=status.HTTP_200_OK)
+def delete_user(user_id: int, db: Session = Depends(get_db)):
+    user = db.query(Student).filter(Student.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+        
+    db.delete(user)
+    db.commit()
+    return {"message": "User deleted successfully"}

@@ -1,5 +1,6 @@
 import os
 import sys
+import time # Added for rate limiting
 
 # Add project root to path so we can import app modules
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -44,6 +45,10 @@ def run_force_sync():
         except Exception as e:
             db.rollback()
             print(f"  [CRASH] Exception occurred: {str(e)}")
+        
+        # RATE LIMIT PROTECTION: Sleep for 3 seconds between operations
+        print("  [WAITING] Respecting GitHub API rate limits (3s)...")
+        time.sleep(3) 
     
     print("\n--- PROVISIONING COMPLETE ---")
     db.close()

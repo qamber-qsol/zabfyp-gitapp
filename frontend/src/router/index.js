@@ -55,6 +55,12 @@ const routes = [
     meta: { requiresAuth: true, roles: ['admin'] },
   },
   {
+    path: '/admin/users',
+    name: 'AdminUsers',
+    component: () => import('../views/admin/UserManagementView.vue'),
+    meta: { requiresAuth: true, roles: ['admin'] }
+  },
+  {
     path: '/:pathMatch(.*)*',
     redirect: '/login',
   },
