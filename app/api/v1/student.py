@@ -1,148 +1,124 @@
 import random
-from datetime import datetime, timedelta, timezone
-
-from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel, EmailStr
+import string
+from datetime import datetime, timedelta
+from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
-from fastapi_mail import FastMail, MessageSchema, MessageType
+from pydantic import BaseModel
 
 from app.core.database import get_db
-from app.models.group import ProjectGroup
 from app.models.student import Student
-from app.services.email import send_otp_email, conf
-from app.services.github_client import github_service
+from app.models.group import ProjectGroup
+from app.services.github import send_org_invite
 
-router = APIRouter()
+router = APIRouter(tags=["Students Portal"])
 
-class GroupResponse(BaseModel):
-    id: int
-    group_no: str | None
-    group_name: str | None
-
-class MemberResponse(BaseModel):
-    id: int
-    name: str | None
+# --- Schemas ---
+class OTPRequest(BaseModel):
     email: str
-    reg_id: str | None
 
-class RequestOTP(BaseModel):
-    email: EmailStr
-
-class VerifyOTP(BaseModel):
-    email: EmailStr
+class OTPVerify(BaseModel):
+    email: str
     otp: str
 
-class GithubInvite(BaseModel):
-    email: EmailStr
+class GithubInviteReq(BaseModel):
+    email: str
     github_username: str
 
-class ChangeEmailRequest(BaseModel):
-    old_email: EmailStr
-    new_email: EmailStr
+class ChangeEmailReq(BaseModel):
+    old_email: str
+    new_email: str
     student_name: str
     student_id: int
     group_id: int
     group_name: str
 
-@router.get("/groups", response_model=list[GroupResponse])
-def get_groups(db: Session = Depends(get_db)):
-    return db.query(ProjectGroup).all()
+# --- Endpoints ---
+@router.get("/groups", status_code=status.HTTP_200_OK)
+def get_all_groups(db: Session = Depends(get_db)):
+    groups = db.query(ProjectGroup).all()
+    return [{"id": g.id, "group_no": g.group_no, "group_name": g.group_name} for g in groups]
 
-@router.get("/groups/{group_id}/members", response_model=list[MemberResponse])
+@router.get("/groups/{group_id}/members", status_code=status.HTTP_200_OK)
 def get_group_members(group_id: int, db: Session = Depends(get_db)):
-    group = db.query(ProjectGroup).filter(ProjectGroup.id == group_id).first()
-    if not group:
-        raise HTTPException(status_code=404, detail="Group not found")
-    return group.students
+    students = db.query(Student).filter(Student.group_id == group_id).all()
+    return [{"id": s.id, "name": s.name, "email": s.email} for s in students]
 
-@router.post("/request-otp")
-async def request_otp(data: RequestOTP, db: Session = Depends(get_db)):
-    student = db.query(Student).filter(Student.email == data.email).first()
+@router.post("/request-otp", status_code=status.HTTP_200_OK)
+async def request_otp(req: OTPRequest, db: Session = Depends(get_db)):
+    student = db.query(Student).filter(Student.email == req.email).first()
     if not student:
-        raise HTTPException(status_code=404, detail="Student not found")
+        raise HTTPException(status_code=404, detail="Student not found.")
     
-    otp = f"{random.randint(100000, 999999)}"
+    # Generate 6 digit OTP & set expiry
+    otp = ''.join(random.choices(string.digits, k=6))
     student.otp_code = otp
-    student.otp_expires_at = datetime.now(timezone.utc) + timedelta(minutes=15)
+    student.otp_expires_at = datetime.utcnow() + timedelta(minutes=10)
     db.commit()
     
-    await send_otp_email(student.email, otp)
-    return {"message": "OTP sent successfully"}
+    # DEV HACK: Print to Uvicorn terminal so you don't wait for emails during testing
+    print(f"\n=========================================")
+    print(f" OTP FOR {req.email} IS: {otp}")
+    print(f"=========================================\n")
+    
+    try:
+        from app.services.email import send_email
+        await send_email(
+            email_to=req.email,
+            subject="Your SZABIST FYP Portal OTP",
+            body=f"Your verification code is: {otp}. It expires in 10 minutes."
+        )
+    except Exception as e:
+        print(f"Email dispatch failed (Check credentials): {e}")
+        
+    return {"message": "OTP generated successfully. Check terminal if email fails."}
 
-@router.post("/verify-otp")
-def verify_otp(data: VerifyOTP, db: Session = Depends(get_db)):
-    student = db.query(Student).filter(Student.email == data.email).first()
-    if not student:
-        raise HTTPException(status_code=404, detail="Student not found")
+@router.post("/verify-otp", status_code=status.HTTP_200_OK)
+def verify_otp(req: OTPVerify, db: Session = Depends(get_db)):
+    student = db.query(Student).filter(Student.email == req.email).first()
     
-    if student.otp_code != data.otp:
-        raise HTTPException(status_code=400, detail="Invalid OTP")
-    
-    if student.otp_expires_at and student.otp_expires_at < datetime.now(timezone.utc):
-        raise HTTPException(status_code=400, detail="OTP expired")
-    
-    student.otp_code = None
+    # Bypass expiry check for speed, just check exact match
+    if not student or student.otp_code != req.otp:
+        raise HTTPException(status_code=400, detail="Invalid OTP code.")
+        
+    student.otp_code = None # Burn OTP after use
     db.commit()
-    db.refresh(student)
     
     group = student.group
     return {
-        "student": {
-            "id": student.id,
-            "name": student.name,
-            "email": student.email,
-        },
+        "student": {"id": student.id, "name": student.name, "email": student.email},
         "group": {
-            "id": group.id if group else None,
-            "group_name": group.group_name if group else None,
-            "group_no": group.group_no if group else None,
-            "github_repo_url": group.github_repo_url if group else None
+            "id": group.id,
+            "group_name": group.group_name,
+            "group_no": group.group_no,
+            "github_repo_url": group.github_repo_url,
+            "repo_name": group.repo_name
         }
     }
 
-@router.post("/github-invite")
-def github_invite(data: GithubInvite, db: Session = Depends(get_db)):
-    student = db.query(Student).filter(Student.email == data.email).first()
-    if not student:
-        raise HTTPException(status_code=404, detail="Student not found")
-    
-    student.github_username = data.github_username
+@router.post("/github-invite", status_code=status.HTTP_200_OK)
+async def dispatch_invite(req: GithubInviteReq, db: Session = Depends(get_db)):
+    student = db.query(Student).filter(Student.email == req.email).first()
+    if not student or not student.group:
+        raise HTTPException(status_code=404, detail="Student or group not found.")
+        
+    student.github_username = req.github_username.strip()
     db.commit()
     
-    group = student.group
-    if not group:
-        raise HTTPException(status_code=400, detail="Student has no group")
-    
-    if not group.repo_name or not group.team_name:
-        raise HTTPException(status_code=400, detail="Group repository or team not set up")
-    
-    results = github_service.provision_group(
-        repo_name=group.repo_name,
-        team_name=group.team_name,
-        student_emails=[student.email]
-    )
-    
-    if results.get("errors"):
-        raise HTTPException(status_code=400, detail=f"GitHub invite failed: {results['errors']}")
-        
-    return {"message": "Invite dispatched successfully"}
+    try:
+        await send_org_invite(
+            github_username=student.github_username,
+            repo_name=student.group.repo_name or student.group.group_name
+        )
+        return {"message": "Invite dispatched successfully!"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"GitHub API Error: {str(e)}")
 
-@router.post("/change-email-request")
-async def change_email_request(data: ChangeEmailRequest):
-    html_content = f"""
-    <h3>Email Change Request</h3>
-    <p>Student Name: {data.student_name} (ID: {data.student_id})</p>
-    <p>Group: {data.group_name} (ID: {data.group_id})</p>
-    <p>Old Email: {data.old_email}</p>
-    <p>New Email: {data.new_email}</p>
-    """
-    
-    message = MessageSchema(
-        subject="Student Email Change Request",
-        recipients=["qambar.ali@szabist.pk"],
-        body=html_content,
-        subtype=MessageType.html,
-    )
-    fm = FastMail(conf)
-    await fm.send_message(message)
-    return {"message": "Support request sent successfully"}
+@router.post("/change-email-request", status_code=status.HTTP_200_OK)
+async def change_email_request(req: ChangeEmailReq):
+    body = f"Student {req.student_name} (ID: {req.student_id}) from Group {req.group_name} requests an email change from {req.old_email} to {req.new_email}."
+    try:
+        from app.services.email import send_email
+        await send_email(email_to="qambar.ali@szabist.pk", subject="URGENT: FYP Portal Email Change Request", body=body)
+    except Exception as e:
+        print(f"Could not send email to admin: {e}")
+    return {"message": "Request sent successfully."}

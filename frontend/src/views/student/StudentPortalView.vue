@@ -1,166 +1,130 @@
 <template>
-  <div class="min-h-screen bg-gray-50 flex flex-col justify-center py-12 sm:px-6 lg:px-8">
-    <div class="sm:mx-auto sm:w-full sm:max-w-md">
-      <h2 class="mt-6 text-center text-3xl font-extrabold text-gray-900">Student Onboarding</h2>
-    </div>
+  <div class="min-h-screen bg-gray-50 py-12 px-4 sm:px-6 lg:px-8 flex items-center justify-center">
+    <div class="max-w-md w-full space-y-8 bg-white p-8 rounded-xl shadow-lg border border-gray-100">
+      <div class="text-center border-b pb-4">
+        <h2 class="text-3xl font-extrabold text-gray-900">Student Portal</h2>
+        <p class="mt-2 text-sm text-gray-600">SZABIST FYP Authentication</p>
+      </div>
 
-    <div class="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
-      <div class="bg-white py-8 px-4 shadow sm:rounded-lg sm:px-10">
-        
-        <!-- State 1: Group Selection -->
-        <div v-if="currentState === 1">
-          <label class="block text-sm font-medium text-gray-700 mb-2">Select your Project Group</label>
-          <div class="relative">
-            <select v-model="selectedGroupId" class="block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md shadow-sm border" :disabled="isSubmitting">
-              <option disabled value="">Choose a group...</option>
-              <option v-for="group in groups" :key="group.id" :value="group.id">
-                {{ group.group_no }} - {{ group.group_name }}
-              </option>
-            </select>
-          </div>
-          <button @click="proceedToMembers" :disabled="!selectedGroupId || isSubmitting" class="mt-4 w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50">
-            Next
+      <!-- STATE 1: Select Group -->
+      <div v-if="currentState === 1" class="space-y-4">
+        <label class="block text-sm font-medium text-gray-700">Select Your Project Group</label>
+        <select v-model="selectedGroup" @change="fetchMembers" class="mt-1 block w-full pl-3 pr-10 py-3 text-base border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md border bg-gray-50">
+          <option :value="null" disabled>-- Choose Group ID --</option>
+          <option v-for="g in groups" :key="g.id" :value="g">
+            {{ g.group_no || `ID: ${g.id}` }} - {{ g.group_name }}
+          </option>
+        </select>
+      </div>
+
+      <!-- STATE 2: Select Email -->
+      <div v-if="currentState === 2" class="space-y-4">
+        <button @click="currentState = 1" class="text-sm text-blue-600 hover:text-blue-800 font-medium">&larr; Change Group</button>
+        <label class="block text-sm font-medium text-gray-700">Select Your Email Address</label>
+        <div class="space-y-2 mt-2">
+          <button v-for="m in members" :key="m.id" @click="requestOtp(m)" class="w-full text-left px-4 py-3 border border-gray-200 rounded-md hover:border-blue-500 hover:bg-blue-50 transition font-medium text-gray-800">
+            {{ m.email }}
           </button>
         </div>
+        <p v-if="members.length === 0" class="text-red-500 text-sm mt-2">No students assigned to this group yet.</p>
+      </div>
 
-        <!-- State 2: Member Selection -->
-        <div v-if="currentState === 2">
-          <button @click="currentState = 1" class="text-sm text-blue-600 mb-4 hover:underline">&larr; Back to Groups</button>
-          <label class="block text-sm font-medium text-gray-700 mb-2">Select your email address</label>
-          <div class="space-y-2 mt-4">
-            <button v-for="member in members" :key="member.id" @click="requestOtp(member)" :disabled="isSubmitting" class="w-full text-left px-4 py-3 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50">
-              {{ member.name || 'Unknown' }} ({{ member.email }})
-            </button>
-          </div>
+      <!-- STATE 3: Verify OTP -->
+      <div v-if="currentState === 3" class="space-y-5">
+        <button @click="currentState = 2" class="text-sm text-blue-600 hover:text-blue-800 font-medium">&larr; Change Email</button>
+        <div class="bg-green-50 p-4 rounded-md border border-green-100">
+          <p class="text-sm text-green-800">OTP Sent! Check the terminal/email for <strong>{{ selectedMember.email }}</strong></p>
         </div>
-
-        <!-- State 3: OTP Verification -->
-        <div v-if="currentState === 3">
-          <button @click="currentState = 2" class="text-sm text-blue-600 mb-4 hover:underline">&larr; Back to Members</button>
-          <p class="text-sm text-gray-600 mb-4">An OTP has been sent to <strong>{{ selectedMember?.email }}</strong>.</p>
-          
-          <div class="mb-4">
-            <label class="block text-sm font-medium text-gray-700 mb-1">Enter 6-digit OTP</label>
-            <input v-model="otpCode" type="text" maxlength="6" class="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm" :disabled="isSubmitting" />
-          </div>
-          
-          <button @click="verifyOtp" :disabled="otpCode.length !== 6 || isSubmitting" class="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50">
-            {{ isSubmitting ? 'Verifying...' : 'Verify OTP' }}
-          </button>
-          
-          <div class="mt-4 text-center border-t pt-4">
-            <button @click="openChangeEmailModal" class="text-sm font-medium text-gray-600 hover:text-gray-900 border border-gray-300 rounded px-4 py-2 bg-gray-50 hover:bg-gray-100 transition-colors">
-              Change Email
-            </button>
-          </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-700">Enter 6-Digit OTP</label>
+          <input v-model="otpInput" type="text" maxlength="6" class="mt-1 block w-full px-3 py-3 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-lg text-center tracking-widest font-mono" placeholder="------">
         </div>
-
-        <!-- State 4: Group Dashboard -->
-        <div v-if="currentState === 4 && dashboardData">
-          <div class="bg-gray-50 p-4 rounded-md border border-gray-200 mb-6">
-            <h3 class="text-lg font-medium text-gray-900">{{ dashboardData.group.group_name }}</h3>
-            <dl class="mt-2 divide-y divide-gray-200 text-sm">
-              <div class="py-2 flex justify-between">
-                <dt class="text-gray-500">Group ID</dt>
-                <dd class="font-medium text-gray-900">{{ dashboardData.group.group_no || dashboardData.group.id }}</dd>
-              </div>
-              <div class="py-2 flex justify-between">
-                <dt class="text-gray-500">GitHub Repo</dt>
-                <dd class="font-medium text-blue-600">
-                  <a v-if="dashboardData.group.github_repo_url" :href="dashboardData.group.github_repo_url" target="_blank" rel="noopener noreferrer">View Repository</a>
-                  <span v-else class="text-gray-500 italic">Not set up yet</span>
-                </dd>
-              </div>
-            </dl>
-          </div>
-
-          <button @click="showInviteModal = true" class="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-gray-900 hover:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-900">
-            Send Invite to Yourself
-          </button>
+        <button @click="verifyOtp" :disabled="isLoading || otpInput.length !== 6" class="w-full flex justify-center py-3 px-4 border border-transparent rounded-md shadow-sm text-sm font-bold text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 transition">
+          {{ isLoading ? 'Verifying...' : 'Verify Identity' }}
+        </button>
+        <div class="text-center pt-2">
+          <button @click="showEmailModal = true" class="text-sm text-gray-500 hover:text-gray-900 underline decoration-gray-300">Change Email / I lost access</button>
         </div>
+      </div>
 
+      <!-- STATE 4: Final Dashboard -->
+      <div v-if="currentState === 4" class="space-y-6">
+        <div class="bg-blue-50 rounded-lg p-4 border border-blue-100">
+          <h3 class="text-lg font-bold text-blue-900">Welcome, {{ selectedMember.name || 'Student' }}</h3>
+          <p class="text-sm text-blue-700 mt-1">Your identity is verified.</p>
+        </div>
+        <dl class="grid grid-cols-1 gap-x-4 gap-y-4 sm:grid-cols-2 bg-gray-50 p-4 rounded-lg border border-gray-200">
+          <div class="sm:col-span-1">
+            <dt class="text-xs font-bold text-gray-500 uppercase">Group ID</dt>
+            <dd class="mt-1 text-sm text-gray-900 font-medium">{{ groupDetails.group_no }}</dd>
+          </div>
+          <div class="sm:col-span-2">
+            <dt class="text-xs font-bold text-gray-500 uppercase">Project Name</dt>
+            <dd class="mt-1 text-sm text-gray-900 font-medium">{{ groupDetails.group_name }}</dd>
+          </div>
+          <div class="sm:col-span-2">
+            <dt class="text-xs font-bold text-gray-500 uppercase">GitHub Repository</dt>
+            <dd class="mt-1 text-sm font-medium break-words">
+              <a v-if="groupDetails.github_repo_url" :href="groupDetails.github_repo_url" target="_blank" class="text-blue-600 hover:underline">{{ groupDetails.github_repo_url }}</a>
+              <span v-else class="text-red-500">Repository Pending Creation</span>
+            </dd>
+          </div>
+        </dl>
+        <button @click="showGithubModal = true" class="w-full flex justify-center py-3 px-4 border border-transparent rounded-md shadow-sm text-sm font-bold text-white bg-gray-900 hover:bg-gray-800 transition">
+          <i class="fab fa-github mr-2 mt-0.5"></i> Send GitHub Invite to Yourself
+        </button>
       </div>
     </div>
 
-    <!-- Modals -->
-    
-    <!-- Change Email Modal -->
-    <div v-if="showChangeEmailModal" class="fixed inset-0 z-10 overflow-y-auto" aria-labelledby="modal-title" role="dialog" aria-modal="true">
-      <div class="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
-        <div class="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" aria-hidden="true" @click="showChangeEmailModal = false"></div>
-        <span class="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
-        <div class="inline-block align-bottom bg-white rounded-lg px-4 pt-5 pb-4 text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full sm:p-6">
-          <div>
-            <h3 class="text-lg leading-6 font-medium text-gray-900 mb-4" id="modal-title">Request Email Change</h3>
-            <div class="space-y-4">
-              <div>
-                <label class="block text-sm font-medium text-gray-700">New Email Address</label>
-                <input v-model="changeEmailData.new_email" type="email" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm" />
-              </div>
-              <div>
-                <label class="block text-sm font-medium text-gray-700">Name</label>
-                <input v-model="changeEmailData.name" type="text" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm" />
-              </div>
-              <div>
-                <label class="block text-sm font-medium text-gray-700">Reg ID</label>
-                <input v-model="changeEmailData.reg_id" type="text" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm" />
-              </div>
-              <div>
-                <label class="block text-sm font-medium text-gray-700">Group Name</label>
-                <input v-model="changeEmailData.group_name" type="text" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm" />
-              </div>
-            </div>
+    <!-- MODAL: GitHub Verification -->
+    <div v-if="showGithubModal" class="fixed inset-0 bg-gray-900 bg-opacity-75 flex items-center justify-center z-50 p-4 backdrop-blur-sm">
+      <div class="bg-white rounded-xl shadow-2xl max-w-md w-full p-6 space-y-5">
+        <div class="border-b pb-3">
+          <h3 class="text-xl font-extrabold text-gray-900">GitHub Verification Required</h3>
+        </div>
+        <div class="bg-yellow-50 border-l-4 border-yellow-400 p-4">
+          <p class="text-sm text-yellow-800">You must have a registered GitHub account using EXACTLY this email address:</p>
+          <p class="text-base font-bold text-black mt-1">{{ selectedMember.email }}</p>
+        </div>
+        <div>
+          <label class="block text-sm font-bold text-gray-700">Enter your exact GitHub Username</label>
+          <input v-model="githubUsername" type="text" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm" placeholder="e.g., octocat">
+        </div>
+        <div class="flex items-start mt-4 bg-gray-50 p-3 rounded border border-gray-200">
+          <div class="flex items-center h-5">
+            <input v-model="githubConfirmed" type="checkbox" class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded cursor-pointer">
           </div>
-          <div class="mt-5 sm:mt-6 sm:flex sm:flex-row-reverse">
-            <button @click="submitEmailChange" :disabled="!changeEmailData.new_email || isSubmitting" class="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-red-600 text-base font-medium text-white hover:bg-red-700 focus:outline-none sm:ml-3 sm:w-auto sm:text-sm disabled:opacity-50">
-              Submit Request
-            </button>
-            <button @click="showChangeEmailModal = false" type="button" class="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none sm:mt-0 sm:w-auto sm:text-sm">
-              Cancel
-            </button>
+          <div class="ml-3 text-sm">
+            <label class="font-medium text-gray-700 cursor-pointer" @click="githubConfirmed = !githubConfirmed">I confirm my GitHub account is already created and linked to the email above.</label>
           </div>
+        </div>
+        <div class="flex justify-end space-x-3 pt-2">
+          <button @click="showGithubModal = false" class="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50">Cancel</button>
+          <button @click="dispatchInvite" :disabled="!githubConfirmed || !githubUsername || isLoading" class="px-4 py-2 bg-blue-600 text-white rounded-md text-sm font-bold disabled:opacity-50 disabled:cursor-not-allowed hover:bg-blue-700 transition">
+            {{ isLoading ? 'Sending...' : 'Dispatch Invite' }}
+          </button>
         </div>
       </div>
     </div>
 
-    <!-- GitHub Invite Modal -->
-    <div v-if="showInviteModal" class="fixed inset-0 z-10 overflow-y-auto" aria-labelledby="modal-title" role="dialog" aria-modal="true">
-      <div class="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
-        <div class="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" aria-hidden="true" @click="showInviteModal = false"></div>
-        <span class="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
-        <div class="inline-block align-bottom bg-white rounded-lg px-4 pt-5 pb-4 text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full sm:p-6">
-          <div class="sm:flex sm:items-start">
-            <div class="mt-3 text-center sm:mt-0 sm:text-left w-full">
-              <h3 class="text-lg leading-6 font-medium text-gray-900" id="modal-title">Important Notice</h3>
-              <div class="mt-2">
-                <p class="text-sm text-gray-500">
-                  You must first create a GitHub account using exactly: <strong>{{ selectedMember?.email }}</strong>.
-                </p>
-                
-                <div class="mt-4">
-                  <label class="block text-sm font-medium text-gray-700">Enter your GitHub Username</label>
-                  <input v-model="githubUsername" type="text" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm" />
-                </div>
-
-                <div class="mt-4 flex items-start">
-                  <div class="flex items-center h-5">
-                    <input id="confirm-github" v-model="confirmGithub" type="checkbox" class="focus:ring-blue-500 h-4 w-4 text-blue-600 border-gray-300 rounded" />
-                  </div>
-                  <div class="ml-3 text-sm">
-                    <label for="confirm-github" class="font-medium text-gray-700">I confirm my GitHub account is created with this email.</label>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-          <div class="mt-5 sm:mt-4 sm:flex sm:flex-row-reverse">
-            <button @click="dispatchInvite" :disabled="!confirmGithub || !githubUsername || isSubmitting" class="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-blue-600 text-base font-medium text-white hover:bg-blue-700 focus:outline-none sm:ml-3 sm:w-auto sm:text-sm disabled:opacity-50">
-              Dispatch Invite
-            </button>
-            <button @click="showInviteModal = false" type="button" class="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none sm:mt-0 sm:w-auto sm:text-sm">
-              Cancel
-            </button>
-          </div>
+    <!-- MODAL: Change Email Request -->
+    <div v-if="showEmailModal" class="fixed inset-0 bg-gray-900 bg-opacity-75 flex items-center justify-center z-50 p-4 backdrop-blur-sm">
+      <div class="bg-white rounded-xl shadow-2xl max-w-md w-full p-6 space-y-4">
+        <h3 class="text-xl font-bold text-gray-900 border-b pb-2">Request Email Change</h3>
+        <p class="text-sm text-gray-600">This form sends a direct request to Admin (qambar.ali@szabist.pk).</p>
+        <div>
+          <label class="block text-sm font-medium text-gray-700">Your Current Bound Email</label>
+          <input :value="selectedMember?.email || 'N/A'" disabled type="text" class="mt-1 block w-full px-3 py-2 bg-gray-100 border border-gray-300 rounded-md text-gray-500 sm:text-sm">
+        </div>
+        <div>
+          <label class="block text-sm font-bold text-gray-700">New Desired Email</label>
+          <input v-model="newEmail" type="email" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm" placeholder="new.email@example.com">
+        </div>
+        <div class="flex justify-end space-x-3 mt-4 pt-2">
+          <button @click="showEmailModal = false" class="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium bg-white hover:bg-gray-50">Cancel</button>
+          <button @click="requestEmailChange" :disabled="!newEmail || isLoading" class="px-4 py-2 bg-blue-600 text-white rounded-md text-sm font-bold disabled:opacity-50">
+            {{ isLoading ? 'Submitting...' : 'Submit Request' }}
+          </button>
         </div>
       </div>
     </div>
@@ -168,167 +132,113 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue';
+import { ref, onMounted } from 'vue'
+import api from '@/services/api' 
 
-const currentState = ref(1);
-const isSubmitting = ref(false);
+const currentState = ref(1)
+const isLoading = ref(false)
 
-const groups = ref([]);
-const selectedGroupId = ref('');
+// State Data
+const groups = ref([])
+const members = ref([])
+const selectedGroup = ref(null)
+const selectedMember = ref(null)
+const otpInput = ref('')
+const groupDetails = ref(null)
 
-const members = ref([]);
-const selectedMember = ref(null);
-
-const otpCode = ref('');
-
-const dashboardData = ref(null);
-
-const showChangeEmailModal = ref(false);
-const changeEmailData = ref({
-  new_email: '',
-  name: '',
-  reg_id: '',
-  group_name: ''
-});
-
-const showInviteModal = ref(false);
-const confirmGithub = ref(false);
-const githubUsername = ref('');
+// Modal Data
+const showGithubModal = ref(false)
+const githubConfirmed = ref(false)
+const githubUsername = ref('')
+const showEmailModal = ref(false)
+const newEmail = ref('')
 
 onMounted(async () => {
   try {
-    const res = await fetch('/api/v1/student/groups');
-    if (res.ok) {
-      groups.value = await res.json();
-    }
-  } catch (error) {
-    console.error('Failed to load groups', error);
+    const res = await api.get('/students/groups')
+    groups.value = res.data
+  } catch (err) {
+    console.error("API Error: Make sure backend is running.", err)
   }
-});
+})
 
-const proceedToMembers = async () => {
-  if (!selectedGroupId.value) return;
-  isSubmitting.value = true;
+const fetchMembers = async () => {
+  if (!selectedGroup.value) return
+  isLoading.value = true
   try {
-    const res = await fetch(`/api/v1/student/groups/${selectedGroupId.value}/members`);
-    if (res.ok) {
-      members.value = await res.json();
-      currentState.value = 2;
-    } else {
-      alert('Failed to load members');
-    }
-  } catch (error) {
-    console.error(error);
+    const res = await api.get(`/students/groups/${selectedGroup.value.id}/members`)
+    members.value = res.data
+    currentState.value = 2
+  } catch (err) {
+    alert("Failed to fetch group members.")
   } finally {
-    isSubmitting.value = false;
+    isLoading.value = false
   }
-};
+}
 
 const requestOtp = async (member) => {
-  selectedMember.value = member;
-  isSubmitting.value = true;
+  selectedMember.value = member
+  isLoading.value = true
   try {
-    const res = await fetch('/api/v1/student/request-otp', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email: member.email })
-    });
-    if (res.ok) {
-      currentState.value = 3;
-    } else {
-      const data = await res.json();
-      alert(`Error: ${data.detail || 'Failed to send OTP'}`);
-    }
-  } catch (error) {
-    console.error(error);
+    await api.post('/students/request-otp', { email: member.email })
+    currentState.value = 3
+  } catch (err) {
+    alert("Error triggering OTP.")
   } finally {
-    isSubmitting.value = false;
+    isLoading.value = false
   }
-};
+}
 
 const verifyOtp = async () => {
-  isSubmitting.value = true;
+  isLoading.value = true
   try {
-    const res = await fetch('/api/v1/student/verify-otp', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email: selectedMember.value.email, otp: otpCode.value })
-    });
-    const data = await res.json();
-    if (res.ok) {
-      dashboardData.value = data;
-      currentState.value = 4;
-    } else {
-      alert(`Error: ${data.detail || 'Invalid OTP'}`);
-    }
-  } catch (error) {
-    console.error(error);
+    const res = await api.post('/students/verify-otp', {
+      email: selectedMember.value.email,
+      otp: otpInput.value
+    })
+    groupDetails.value = res.data.group
+    currentState.value = 4
+  } catch (err) {
+    alert(err.response?.data?.detail || "Invalid OTP code.")
   } finally {
-    isSubmitting.value = false;
+    isLoading.value = false
   }
-};
-
-const openChangeEmailModal = () => {
-  const selectedGroup = groups.value.find(g => g.id === selectedGroupId.value);
-  changeEmailData.value = {
-    new_email: '',
-    name: selectedMember.value.name || '',
-    reg_id: selectedMember.value.reg_id || '',
-    group_name: selectedGroup?.group_name || selectedGroup?.group_no || ''
-  };
-  showChangeEmailModal.value = true;
-};
-
-const submitEmailChange = async () => {
-  isSubmitting.value = true;
-  try {
-    const res = await fetch('/api/v1/student/change-email-request', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        old_email: selectedMember.value.email,
-        new_email: changeEmailData.value.new_email,
-        student_name: changeEmailData.value.name,
-        student_id: selectedMember.value.id,
-        group_id: selectedGroupId.value,
-        group_name: changeEmailData.value.group_name
-      })
-    });
-    if (res.ok) {
-      alert('Support request sent successfully');
-      showChangeEmailModal.value = false;
-    } else {
-      alert('Failed to send request');
-    }
-  } catch (error) {
-    console.error(error);
-  } finally {
-    isSubmitting.value = false;
-  }
-};
+}
 
 const dispatchInvite = async () => {
-  isSubmitting.value = true;
+  isLoading.value = true
   try {
-    const res = await fetch('/api/v1/student/github-invite', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        email: selectedMember.value.email,
-        github_username: githubUsername.value
-      })
-    });
-    if (res.ok) {
-      alert('Invite dispatched successfully');
-      showInviteModal.value = false;
-    } else {
-      const data = await res.json();
-      alert(`Error: ${data.detail || 'Failed to dispatch invite'}`);
-    }
-  } catch (error) {
-    console.error(error);
+    await api.post('/students/github-invite', {
+      email: selectedMember.value.email,
+      github_username: githubUsername.value
+    })
+    alert("Success! The GitHub Invite has been sent to your email.")
+    showGithubModal.value = false
+  } catch (err) {
+    alert(err.response?.data?.detail || "Failed to dispatch invite.")
   } finally {
-    isSubmitting.value = false;
+    isLoading.value = false
   }
-};
+}
+
+const requestEmailChange = async () => {
+  isLoading.value = true
+  try {
+    await api.post('/students/change-email-request', {
+      old_email: selectedMember.value?.email || 'Unknown',
+      new_email: newEmail.value,
+      student_name: selectedMember.value?.name || 'Unknown',
+      student_id: selectedMember.value?.id || 0,
+      group_id: selectedGroup.value?.id || 0,
+      group_name: selectedGroup.value?.group_name || 'Unknown'
+    })
+    alert("Your email change request has been securely dispatched to the Administrator.")
+    showEmailModal.value = false
+    newEmail.value = ''
+  } catch (err) {
+    alert("Failed to send request.")
+  } finally {
+    isLoading.value = false
+  }
+}
 </script>
