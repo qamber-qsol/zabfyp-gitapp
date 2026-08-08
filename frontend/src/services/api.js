@@ -2,11 +2,14 @@ import axios from 'axios'
 import router from '@/router'
 
 const api = axios.create({
-  baseURL: '/api/v1',
+  // Use Vercel URL in production, keep localhost for your local testing
+  baseURL: isProduction 
+    ? 'https://zabfyp-backend.vercel.app/api/v1' 
+    : 'http://localhost:8000/api/v1',
   headers: {
     'Content-Type': 'application/json',
-  },
-})
+  }
+});
 
 const getToken = () => localStorage.getItem('access_token')
 
