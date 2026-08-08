@@ -1,6 +1,6 @@
 import axios from 'axios'
 import router from '@/router'
-
+const isProduction = import.meta.env.PROD;
 const api = axios.create({
   // Use Vercel URL in production, keep localhost for your local testing
   baseURL: isProduction 
