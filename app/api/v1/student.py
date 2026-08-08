@@ -9,6 +9,8 @@ from app.core.database import get_db
 from app.models.student import Student
 from app.models.group import ProjectGroup
 from app.services.github import send_org_invite
+from app.services.email import send_otp_email, conf
+from fastapi_mail import FastMail, MessageSchema, MessageType
 
 router = APIRouter(tags=["Students Portal"])
 
@@ -61,14 +63,9 @@ async def request_otp(req: OTPRequest, db: Session = Depends(get_db)):
     print(f"=========================================\n")
     
     try:
-        from app.services.email import send_email
-        await send_email(
-            email_to=req.email,
-            subject="Your SZABIST FYP Portal OTP",
-            body=f"Your verification code is: {otp}. It expires in 10 minutes."
-        )
+        await send_otp_email(email_to=req.email, otp_code=otp)
     except Exception as e:
-        print(f"Email dispatch failed (Check credentials): {e}")
+        print(f"Email dispatch failed: {e}")
         
     return {"message": "OTP generated successfully. Check terminal if email fails."}
 
@@ -117,8 +114,14 @@ async def dispatch_invite(req: GithubInviteReq, db: Session = Depends(get_db)):
 async def change_email_request(req: ChangeEmailReq):
     body = f"Student {req.student_name} (ID: {req.student_id}) from Group {req.group_name} requests an email change from {req.old_email} to {req.new_email}."
     try:
-        from app.services.email import send_email
-        await send_email(email_to="qambar.ali@szabist.pk", subject="URGENT: FYP Portal Email Change Request", body=body)
+        message = MessageSchema(
+            subject="URGENT: FYP Portal Email Change Request",
+            recipients=["qambar.ali@szabist.pk"],
+            body=body,
+            subtype=MessageType.html,
+        )
+        fm = FastMail(conf)
+        await fm.send_message(message)
     except Exception as e:
         print(f"Could not send email to admin: {e}")
     return {"message": "Request sent successfully."}
