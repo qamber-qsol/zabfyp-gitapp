@@ -6,6 +6,10 @@
         <p class="mt-2 text-sm text-gray-600">SZABIST FYP Authentication</p>
       </div>
 
+      <div v-if="notification.show" :class="notification.type === 'error' ? 'bg-red-50 text-red-800 border-red-200' : 'bg-green-50 text-green-800 border-green-200'" class="p-4 mb-4 border rounded-md text-sm font-medium transition-all">
+        {{ notification.message }}
+      </div>
+
       <!-- STATE 1: Select Group -->
       <div v-if="currentState === 1" class="space-y-4">
         <label class="block text-sm font-medium text-gray-700">Select Your Project Group</label>
@@ -35,8 +39,9 @@
         <button @click="currentState = 1" class="text-sm text-blue-600 hover:text-blue-800 font-medium">&larr; Change Group</button>
         <label class="block text-sm font-medium text-gray-700">Select Your Email Address</label>
         <div class="space-y-2 mt-2">
-          <button v-for="m in members" :key="m.id" @click="requestOtp(m)" class="w-full text-left px-4 py-3 border border-gray-200 rounded-md hover:border-blue-500 hover:bg-blue-50 transition font-medium text-gray-800">
-            {{ m.email }}
+          <button v-for="m in members" :key="m.id" @click="requestOtp(m)" :disabled="isLoading" class="w-full text-left px-4 py-3 border border-gray-200 rounded-md hover:border-blue-500 hover:bg-blue-50 transition font-medium text-gray-800 disabled:opacity-50 flex justify-between items-center">
+            <span>{{ m.email }}</span>
+            <span v-if="isLoading && selectedMember?.id === m.id" class="text-xs text-blue-600 animate-pulse">Sending OTP...</span>
           </button>
         </div>
         <p v-if="members.length === 0" class="text-red-500 text-sm mt-2">No students assigned to this group yet.</p>
@@ -55,8 +60,9 @@
         <button @click="verifyOtp" :disabled="isLoading || otpInput.length !== 6" class="w-full flex justify-center py-3 px-4 border border-transparent rounded-md shadow-sm text-sm font-bold text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 transition">
           {{ isLoading ? 'Verifying...' : 'Verify Identity' }}
         </button>
-        <div class="text-center pt-2">
+        <div class="text-center pt-2 space-x-4">
           <button @click="showEmailModal = true" class="text-sm text-gray-500 hover:text-gray-900 underline decoration-gray-300">Change Email / I lost access</button>
+          <button @click="showContactModal = true" class="text-sm text-gray-500 hover:text-gray-900 underline decoration-gray-300">Report an Issue</button>
         </div>
       </div>
 
@@ -86,6 +92,9 @@
         <button @click="showGithubModal = true" class="w-full flex justify-center py-3 px-4 border border-transparent rounded-md shadow-sm text-sm font-bold text-white bg-gray-900 hover:bg-gray-800 transition">
           <i class="fab fa-github mr-2 mt-0.5"></i> Send GitHub Invite to Yourself
         </button>
+        <div class="text-center pt-2">
+          <button @click="showContactModal = true" class="text-sm text-gray-500 hover:text-gray-900 underline decoration-gray-300">Report an Issue</button>
+        </div>
       </div>
     </div>
 
@@ -116,7 +125,7 @@
             {{ inviteStatus === 'exists' ? 'An invite is already waiting for you!' : 'Success! Your invite has been generated.' }}
           </p>
           <p :class="inviteStatus === 'exists' ? 'text-blue-700' : 'text-green-700'" class="text-xs mt-1">
-            Emails can sometimes be delayed or blocked by spam filters. To join your FYP repository immediately, log into GitHub and visit your pending invitations:
+            Note: If you have already been sent an invite previously, GitHub will block duplicate emails to prevent spam. Please check your inbox/spam folder, or use the direct link below to accept immediately.
           </p>
           <a href="https://github.com/orgs/szabist-karachi-campus/invitation" target="_blank" :class="inviteStatus === 'exists' ? 'text-blue-600' : 'text-green-600'" class="text-sm font-bold hover:underline mt-2 inline-block">
             github.com/orgs/szabist-karachi-campus/invitation &rarr;
@@ -152,6 +161,24 @@
         </div>
       </div>
     </div>
+
+    <!-- MODAL: Contact Admin -->
+    <div v-if="showContactModal" class="fixed inset-0 bg-gray-900 bg-opacity-75 flex items-center justify-center z-50 p-4 backdrop-blur-sm">
+      <div class="bg-white rounded-xl shadow-2xl max-w-md w-full p-6 space-y-4">
+        <h3 class="text-xl font-bold text-gray-900 border-b pb-2">Report an Issue</h3>
+        <p class="text-sm text-gray-600">Describe your problem below. This will be sent directly to qambar.ali@szabist.pk.</p>
+        <div>
+          <label class="block text-sm font-bold text-gray-700">Issue Description</label>
+          <textarea v-model="issueDescription" rows="4" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm" placeholder="Explain the problem you are facing..."></textarea>
+        </div>
+        <div class="flex justify-end space-x-3 mt-4 pt-2">
+          <button @click="showContactModal = false" class="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium bg-white hover:bg-gray-50">Cancel</button>
+          <button @click="submitContactAdmin" :disabled="!issueDescription || isLoading" class="px-4 py-2 bg-blue-600 text-white rounded-md text-sm font-bold disabled:opacity-50">
+            {{ isLoading ? 'Sending...' : 'Send Message' }}
+          </button>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -162,6 +189,14 @@ import api from '@/services/api'
 const currentState = ref(1)
 const isLoading = ref(false)
 const inviteStatus = ref(null)
+const notification = ref({ show: false, message: '', type: 'info' })
+const showContactModal = ref(false)
+const issueDescription = ref('')
+
+const showMessage = (msg, type = 'error') => {
+  notification.value = { show: true, message: msg, type }
+  setTimeout(() => { notification.value.show = false }, 5000)
+}
 
 // State Data
 const groups = ref([])
@@ -214,7 +249,7 @@ const fetchMembers = async () => {
     members.value = res.data
     currentState.value = 2
   } catch (err) {
-    alert("Failed to fetch group members.")
+    showMessage("Failed to fetch group members.")
   } finally {
     isLoading.value = false
   }
@@ -227,7 +262,7 @@ const requestOtp = async (member) => {
     await api.post('/students/request-otp', { email: member.email })
     currentState.value = 3
   } catch (err) {
-    alert("Error triggering OTP.")
+    showMessage("Error triggering OTP.")
   } finally {
     isLoading.value = false
   }
@@ -243,7 +278,7 @@ const verifyOtp = async () => {
     groupDetails.value = res.data.group
     currentState.value = 4
   } catch (err) {
-    alert(err.response?.data?.detail || "Invalid OTP code.")
+    showMessage(err.response?.data?.detail || "Invalid OTP code.")
   } finally {
     isLoading.value = false
   }
@@ -262,11 +297,10 @@ const dispatchInvite = async () => {
       inviteStatus.value = 'exists'
     } else {
       inviteStatus.value = 'created'
-      alert("Success! A new GitHub Invite has been sent to your email.")
-      showGithubModal.value = false
+      showMessage("Success! A new GitHub Invite has been sent to your email.", "success")
     }
   } catch (err) {
-    alert(err.response?.data?.detail || "Failed to dispatch invite.")
+    showMessage(err.response?.data?.detail || "Failed to dispatch invite.")
   } finally {
     isLoading.value = false
   }
@@ -283,11 +317,30 @@ const requestEmailChange = async () => {
       group_id: selectedGroup.value?.id || 0,
       group_name: selectedGroup.value?.group_name || 'Unknown'
     })
-    alert("Your email change request has been securely dispatched to the Administrator.")
+    showMessage("Your email change request has been securely dispatched to the Administrator.", "success")
     showEmailModal.value = false
     newEmail.value = ''
   } catch (err) {
-    alert("Failed to send request.")
+    showMessage("Failed to send request.")
+  } finally {
+    isLoading.value = false
+  }
+}
+
+const submitContactAdmin = async () => {
+  isLoading.value = true
+  try {
+    await api.post('/students/contact-admin', {
+      student_name: selectedMember.value?.name || 'Unknown',
+      email: selectedMember.value?.email || 'Unknown',
+      group_no: selectedGroup.value?.group_no || 'Unknown',
+      issue_description: issueDescription.value
+    })
+    showMessage("Your issue has been reported to the admin.", "success")
+    showContactModal.value = false
+    issueDescription.value = ''
+  } catch (err) {
+    showMessage("Failed to send report.", "error")
   } finally {
     isLoading.value = false
   }

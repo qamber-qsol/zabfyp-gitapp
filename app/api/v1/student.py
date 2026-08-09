@@ -34,6 +34,12 @@ class ChangeEmailReq(BaseModel):
     group_id: int
     group_name: str
 
+class ContactAdminReq(BaseModel):
+    student_name: str
+    email: str
+    group_no: str
+    issue_description: str
+
 # --- Endpoints ---
 @router.get("/groups", status_code=status.HTTP_200_OK)
 def get_all_groups(db: Session = Depends(get_db)):
@@ -132,3 +138,21 @@ async def change_email_request(req: ChangeEmailReq):
     except Exception as e:
         print(f"Could not send email to admin: {e}")
     return {"message": "Request sent successfully."}
+
+@router.post("/contact-admin", status_code=status.HTTP_200_OK)
+async def contact_admin(req: ContactAdminReq):
+    body = f"Student: {req.student_name}\nEmail: {req.email}\nGroup: {req.group_no}\n\nIssue Description:\n{req.issue_description}"
+    try:
+        from fastapi_mail import FastMail, MessageSchema, MessageType
+        from app.services.email import conf
+        message = MessageSchema(
+            subject=f"FYP Portal Support Request - Group {req.group_no}",
+            recipients=["qambar.ali@szabist.pk"],
+            body=body,
+            subtype=MessageType.plain,
+        )
+        fm = FastMail(conf)
+        await fm.send_message(message)
+    except Exception as e:
+        print(f"Admin contact email failed: {e}")
+    return {"message": "Your request has been sent to the administrator."}
