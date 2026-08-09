@@ -102,13 +102,20 @@ async def dispatch_invite(req: GithubInviteReq, db: Session = Depends(get_db)):
     db.commit()
     
     try:
-        await send_org_invite(
-            github_username=student.github_username,
+        from app.services.github import send_org_invite
+        status_result = await send_org_invite(
+            github_username=student.email, # Force email usage
             repo_name=student.group.repo_name or student.group.group_name
         )
-        return {"message": "Invite dispatched successfully!"}
+        
+        if status_result == "exists":
+            return {"message": "Invite already pending.", "status": "exists"}
+        elif status_result == "created":
+            return {"message": "Invite dispatched successfully!", "status": "created"}
+        else:
+            raise HTTPException(status_code=500, detail="Failed to communicate with GitHub.")
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"GitHub API Error: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Internal Error: {str(e)}")
 
 @router.post("/change-email-request", status_code=status.HTTP_200_OK)
 async def change_email_request(req: ChangeEmailReq):

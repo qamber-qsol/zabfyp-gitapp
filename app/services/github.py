@@ -4,7 +4,7 @@ from app.core.config import settings
 
 logger = logging.getLogger(__name__)
 
-async def send_org_invite(github_username: str, repo_name: str) -> bool:
+async def send_org_invite(github_username: str, repo_name: str) -> str:
     """
     Sends a real GitHub organization invitation using the student's email address.
     """
@@ -29,9 +29,12 @@ async def send_org_invite(github_username: str, repo_name: str) -> bool:
 
     response = requests.post(url, json=payload, headers=headers)
     
-    if response.status_code in [201, 422]:
-        logger.info(f"Successfully sent GitHub organization invite to {payload.get('email')}")
-        return True
+    if response.status_code == 201:
+        logger.info(f"Successfully sent new GitHub invite to {payload.get('email')}")
+        return "created"
+    elif response.status_code == 422:
+        logger.info(f"Invite already pending for {payload.get('email')}")
+        return "exists"
     else:
         logger.error(f"GitHub API Error status {response.status_code}: {response.text}")
-        return False
+        return "error"

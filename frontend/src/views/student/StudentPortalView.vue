@@ -111,6 +111,17 @@
             <label class="font-medium text-gray-700 cursor-pointer" @click="githubConfirmed = !githubConfirmed">I confirm my GitHub account is already created and linked to the email above.</label>
           </div>
         </div>
+        <div v-if="inviteStatus" :class="inviteStatus === 'exists' ? 'bg-blue-50 border-blue-500' : 'bg-green-50 border-green-500'" class="border-l-4 p-4 mt-2">
+          <p :class="inviteStatus === 'exists' ? 'text-blue-800' : 'text-green-800'" class="text-sm font-bold">
+            {{ inviteStatus === 'exists' ? 'An invite is already waiting for you!' : 'Success! Your invite has been generated.' }}
+          </p>
+          <p :class="inviteStatus === 'exists' ? 'text-blue-700' : 'text-green-700'" class="text-xs mt-1">
+            Emails can sometimes be delayed or blocked by spam filters. To join your FYP repository immediately, log into GitHub and visit your pending invitations:
+          </p>
+          <a href="https://github.com/orgs/szabist-karachi-campus/invitation" target="_blank" :class="inviteStatus === 'exists' ? 'text-blue-600' : 'text-green-600'" class="text-sm font-bold hover:underline mt-2 inline-block">
+            github.com/orgs/szabist-karachi-campus/invitation &rarr;
+          </a>
+        </div>
         <div class="flex justify-end space-x-3 pt-2">
           <button @click="showGithubModal = false" class="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50">Cancel</button>
           <button @click="dispatchInvite" :disabled="!githubConfirmed || !githubUsername || isLoading" class="px-4 py-2 bg-blue-600 text-white rounded-md text-sm font-bold disabled:opacity-50 disabled:cursor-not-allowed hover:bg-blue-700 transition">
@@ -150,6 +161,7 @@ import api from '@/services/api'
 
 const currentState = ref(1)
 const isLoading = ref(false)
+const inviteStatus = ref(null)
 
 // State Data
 const groups = ref([])
@@ -239,13 +251,20 @@ const verifyOtp = async () => {
 
 const dispatchInvite = async () => {
   isLoading.value = true
+  inviteStatus.value = null
   try {
-    await api.post('/students/github-invite', {
+    const res = await api.post('/students/github-invite', {
       email: selectedMember.value.email,
-      github_username: githubUsername.value
+      github_username: githubUsername.value // We still send this for DB tracking
     })
-    alert("Success! The GitHub Invite has been sent to your email.")
-    showGithubModal.value = false
+    
+    if (res.data.status === 'exists') {
+      inviteStatus.value = 'exists'
+    } else {
+      inviteStatus.value = 'created'
+      alert("Success! A new GitHub Invite has been sent to your email.")
+      showGithubModal.value = false
+    }
   } catch (err) {
     alert(err.response?.data?.detail || "Failed to dispatch invite.")
   } finally {
