@@ -13,25 +13,30 @@
       <!-- STATE 1: Select Group -->
       <div v-if="currentState === 1" class="space-y-4">
         <label class="block text-sm font-medium text-gray-700">Select Your Project Group</label>
-        <div class="relative">
-          <input 
-            v-model="searchQuery" 
-            @focus="showDropdown = true" 
-            type="text" 
-            placeholder="Search by Group ID (e.g., P605) or Name..." 
-            class="mt-1 block w-full px-4 py-3 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm bg-gray-50"
-          />
-          <ul v-if="showDropdown && filteredGroups.length" class="absolute z-10 w-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg max-h-60 overflow-auto">
-            <li 
-              v-for="g in filteredGroups" 
-              :key="g.id" 
-              @click="selectGroup(g)" 
-              class="px-4 py-3 hover:bg-blue-50 cursor-pointer text-sm text-gray-800 border-b border-gray-50 last:border-0"
-            >
-              <span class="font-bold">{{ g.group_no || `ID: ${g.id}` }}</span> - {{ g.group_name }}
-            </li>
-          </ul>
-        </div>
+          <div class="relative">
+            <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+              <i v-if="isFetchingGroups" class="fas fa-circle-notch fa-spin text-blue-500"></i>
+              <i v-else class="fas fa-search text-gray-400"></i>
+            </div>
+            <input 
+              v-model="searchQuery" 
+              @focus="showDropdown = true" 
+              :disabled="isFetchingGroups"
+              type="text" 
+              :placeholder="isFetchingGroups ? 'Loading groups from database...' : 'Search Group ID (e.g., P605)...'" 
+              class="mt-1 block w-full pl-10 pr-4 py-3 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 text-sm sm:text-base bg-gray-50 disabled:bg-gray-200 disabled:cursor-wait transition-colors"
+            />
+            <ul v-if="showDropdown && filteredGroups.length" class="absolute z-10 w-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg max-h-60 overflow-auto">
+              <li 
+                v-for="g in filteredGroups" 
+                :key="g.id" 
+                @click="selectGroup(g)" 
+                class="px-4 py-3 hover:bg-blue-50 cursor-pointer text-sm text-gray-800 border-b border-gray-50 last:border-0"
+              >
+                <span class="font-bold">{{ g.group_no || `ID: ${g.id}` }}</span> - <span class="break-words">{{ g.group_name }}</span>
+              </li>
+            </ul>
+          </div>
       </div>
 
       <!-- STATE 2: Select Email -->
@@ -188,6 +193,7 @@ import api from '@/services/api'
 
 const currentState = ref(1)
 const isLoading = ref(false)
+const isFetchingGroups = ref(true)
 const inviteStatus = ref(null)
 const notification = ref({ show: false, message: '', type: 'info' })
 const showContactModal = ref(false)
@@ -237,7 +243,9 @@ onMounted(async () => {
     const res = await api.get('/students/groups')
     groups.value = res.data
   } catch (err) {
-    console.error("API Error: Make sure backend is running.", err)
+    console.error("API Error", err)
+  } finally {
+    isFetchingGroups.value = false
   }
 })
 

@@ -83,29 +83,44 @@
             </div>
           </div>
 
-          <!-- Step 2 -->
+          <!-- Step 2: Configuration & Code Push -->
           <div>
-            <h3 class="font-extrabold text-gray-900 text-xl border-b-2 border-gray-100 pb-2 flex items-center">
-              <span class="bg-blue-100 text-blue-800 rounded-full h-8 w-8 inline-flex items-center justify-center mr-3 text-sm">2</span> 
-              Push Your Existing Project to Your FYP Repo
+            <h3 class="font-extrabold text-gray-900 text-lg md:text-xl border-b-2 border-gray-100 pb-2 flex items-center break-words">
+              <span class="bg-blue-100 text-blue-800 rounded-full h-8 w-8 inline-flex items-center justify-center mr-3 text-sm flex-shrink-0">2</span> 
+              Push Your Code (Resolving Conflicts & Auth)
             </h3>
-            <p class="text-base text-gray-600 mt-3 mb-4">Open your terminal (or Command Prompt/PowerShell), navigate to your existing project folder, and execute the following commands in order:</p>
-            <div class="bg-gray-900 text-green-400 p-5 rounded-lg font-mono text-sm overflow-x-auto shadow-inner space-y-2 border border-gray-700">
-              <p><span class="text-gray-500 select-none"># 1. Initialize the local directory as a Git repository</span></p>
-              <p class="font-bold text-white">git init -b main</p>
-              <br>
-              <p><span class="text-gray-500 select-none"># 2. Add all your existing project files to staging</span></p>
-              <p class="font-bold text-white">git add .</p>
-              <br>
-              <p><span class="text-gray-500 select-none"># 3. Commit your files</span></p>
-              <p class="font-bold text-white">git commit -m "Initial FYP code push"</p>
-              <br>
+            <p class="text-sm md:text-base text-gray-600 mt-3 mb-4">Open your terminal in your project folder. We have included the exact commands to bypass the most common student errors (like rejected pushes and main/master branch conflicts).</p>
+            
+            <div class="bg-gray-900 text-green-400 p-4 md:p-6 rounded-lg font-mono text-xs md:text-sm overflow-x-auto shadow-inner space-y-3 border border-gray-700">
+              
+              <p><span class="text-gray-500 select-none"># 1. First, tell Git who you are (prevents commit errors)</span><br>
+              <span class="font-bold text-white">git config --global user.name "Your Name"</span><br>
+              <span class="font-bold text-white">git config --global user.email "your_email@szabist.pk"</span></p>
+              
+              <div class="border-t border-gray-700 my-2"></div>
+
+              <p><span class="text-gray-500 select-none"># 2. Initialize repo and force the branch name to 'main'</span><br>
+              <span class="font-bold text-white">git init -b main</span></p>
+              
+              <p><span class="text-gray-500 select-none"># 3. Stage and commit your project files</span><br>
+              <span class="font-bold text-white">git add .</span><br>
+              <span class="font-bold text-white">git commit -m "Initial FYP code push"</span></p>
+              
+              <div class="border-t border-gray-700 my-2"></div>
+
               <p><span class="text-gray-500 select-none"># 4. Link your local code to your specific SZABIST FYP repository</span><br>
-              <span class="text-gray-500 select-none"># (You can find your exact Repo URL in the GitHub Access Portal above)</span></p>
-              <p class="font-bold text-yellow-300">git remote add origin https://github.com/szabist-karachi-campus/YOUR_REPO_NAME.git</p>
-              <br>
-              <p><span class="text-gray-500 select-none"># 5. Push your code to GitHub</span></p>
-              <p class="font-bold text-white">git push -u origin main</p>
+              <span class="font-bold text-yellow-300">git remote add origin https://github.com/szabist-karachi-campus/YOUR_REPO_NAME.git</span></p>
+              
+              <p><span class="text-gray-500 select-none"># 5. PULL FIRST! This prevents "updates were rejected" errors if your repo has a README.</span><br>
+              <span class="font-bold text-white">git pull origin main --rebase</span></p>
+              
+              <p><span class="text-gray-500 select-none"># 6. Finally, push your code. (A browser window will pop up asking you to log into GitHub).</span><br>
+              <span class="font-bold text-white">git push -u origin main</span></p>
+            </div>
+            
+            <div class="mt-4 bg-yellow-50 border-l-4 border-yellow-400 p-4 rounded-r-md">
+              <p class="text-xs md:text-sm text-yellow-800 font-bold"><i class="fas fa-key mr-1"></i> Authentication Note:</p>
+              <p class="text-xs md:text-sm text-yellow-700 mt-1">If the terminal asks for a password instead of opening a browser, GitHub no longer accepts account passwords. You must generate a <strong>Personal Access Token (Classic)</strong> from your GitHub Developer Settings and paste that in as your password.</p>
             </div>
           </div>
         </div>
