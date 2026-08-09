@@ -10,13 +10,8 @@ import { useAuthStore } from '@/stores/auth'
 const routes = [
   {
     path: '/',
-    redirect: (to) => {
-      const authStore = useAuthStore()
-      const role = (authStore.user_role || 'student').toLowerCase()
-      if (role === 'admin') return '/admin/dashboard'
-      if (role === 'coordinator') return '/coordinator/dashboard'
-      return '/student/dashboard'
-    },
+    name: 'Welcome',
+    component: () => import('../views/student/WelcomeView.vue')
   },
   {
     path: '/login',
